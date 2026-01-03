@@ -8,9 +8,10 @@ class Program
 {
     static async Task Main()
     {
-        var bot = new TelegramBotClient(
-            Environment.GetEnvironmentVariable("BOT_TOKEN") ?? "8447898285:AAHSrxb97EE1yfCY1KQwXOxZvYabKpPHjEA"
-        );
+        var token = Environment.GetEnvironmentVariable("BOT_TOKEN")
+            ?? throw new Exception("BOT_TOKEN not set");
+
+        var bot = new TelegramBotClient(token);
 
         using var cts = new CancellationTokenSource();
 
@@ -23,8 +24,9 @@ class Program
 
         var me = await bot.GetMe();
         Console.WriteLine($"Бот запущен: @{me.Username}");
-        Console.ReadLine();
-        cts.Cancel();
+
+        // 🔥 КРИТИЧЕСКИ ВАЖНО для Railway (бот живёт всегда)
+        await Task.Delay(-1);
     }
 
     // ================= МЕНЮ =================
@@ -38,7 +40,12 @@ class Program
             new [] { InlineKeyboardButton.WithCallbackData("📚 Гайды", "service_guides") }
         });
 
-        await bot.SendMessage(chatId, "Главное меню 👋\nВыберите услугу:", replyMarkup: menu, cancellationToken: ct);
+        await bot.SendMessage(
+            chatId,
+            "Главное меню 👋\nВыберите услугу:",
+            replyMarkup: menu,
+            cancellationToken: ct
+        );
     }
 
     // ================= КНОПКИ =================
@@ -103,8 +110,6 @@ class Program
                 await SendMainMenu(bot, chatId, ct);
                 break;
 
-            // ========= ТРЕНИРОВКИ =========
-
             case "training_info":
                 await bot.SendMessage(
                     chatId,
@@ -112,8 +117,7 @@ class Program
                     "Вы записываете то, как вы играете один или с друзьями и приходите на тренировку со своими записями.\n\n" +
                     "Мы разбираем демо, выявляем ошибки, затем можем идти играть вместе.\n\n" +
                     "Тренер в лайв-формате смотрит за вашими действиями и корректирует их.\n\n" +
-                    "Все ошибки и моменты для улучшения озвучиваются в процессе или в конце тренировки,\n" +
-                    "чтобы вы могли поработать над ними между тренировками.",
+                    "Все ошибки и моменты для улучшения озвучиваются в процессе или в конце тренировки.",
                     replyMarkup: TrainingStart(),
                     cancellationToken: ct
                 );
@@ -122,8 +126,7 @@ class Program
             case "training_want":
                 await bot.SendMessage(
                     chatId,
-                    "Стоимость 1 часа тренировки составляет:\n\n" +
-                    "💰 **1300 рублей / 15$**",
+                    "Стоимость 1 часа тренировки:\n\n💰 1300 рублей / 15$",
                     replyMarkup: AgreeButton(),
                     cancellationToken: ct
                 );
@@ -132,7 +135,7 @@ class Program
             case "training_agree":
                 await bot.SendMessage(
                     chatId,
-                    "Вам предложены реквизиты для оплаты:\n\n" +
+                    "Реквизиты для оплаты:\n\n" +
                     "1) СБП: 79964821339 | Т банк / Сбер\n" +
                     "2) Криптовалюта (напишите в ЛС)\n\n" +
                     "После оплаты нажмите ✅ Подтвердить",
@@ -141,34 +144,32 @@ class Program
                 );
                 break;
 
-            // ========= RUMBLE =========
-
             case "service_rumble":
                 await bot.SendMessage(
                     chatId,
-                    "Рейтинговая лестница (Rumble) — ограниченный по времени ивент ранкеда.\n\n" +
-                    "Вы играете 5 лучших игр по поинтам и занимаете место в таблице.\n\n" +
-                    "Топ 9 игроков получают интерактивный полет.\n\n" +
-                    "Чтобы получить особенный цвет, нужно выполнить это два раза за ивент.",
+                    "Рейтинговая лестница (Rumble) — временный ивент ранкеда.\n\n" +
+                    "Вы играете 5 лучших игр и занимаете место в таблице.\n\n" +
+                    "Топ 9 игроков получают интерактивный полёт.",
                     replyMarkup: RumbleStart(),
                     cancellationToken: ct
                 );
                 break;
 
             case "rumble_want":
-                await bot.SendMessage(chatId,
+                await bot.SendMessage(
+                    chatId,
                     "Как ты хочешь это сделать?",
                     replyMarkup: RumbleMethod(),
-                    cancellationToken: ct);
+                    cancellationToken: ct
+                );
                 break;
 
             case "rumble_together":
                 await bot.SendMessage(
                     chatId,
-                    "Двое игроков помогают тебе выполнить ивент.\n\n" +
-                    "💰 **10 000 рублей за одно задание**\n\n" +
+                    "💰 10 000 рублей за задание\n\n" +
                     "Реквизиты:\n" +
-                    "1) СБП: 79964821339 | Т банк / Сбер\n" +
+                    "1) СБП: 79964821339\n" +
                     "2) Криптовалюта\n\n" +
                     "После оплаты нажмите ✅ Подтвердить",
                     replyMarkup: PaymentButtons(),
@@ -179,7 +180,7 @@ class Program
             case "rumble_cheaper":
                 await bot.SendMessage(
                     chatId,
-                    "Для уточнения подробной информации свяжитесь с @bapetaype.\n",
+                    "Для уточнения напишите 👉 @bapetaype",
                     replyMarkup: new InlineKeyboardMarkup(
                         InlineKeyboardButton.WithCallbackData("⬅️ Главное меню", "main_menu")
                     ),
@@ -187,13 +188,10 @@ class Program
                 );
                 break;
 
-            // ========= ПОДТВЕРЖДЕНИЕ =========
-
             case "confirm_payment":
                 await bot.SendMessage(
                     chatId,
-                    "Спасибо за покупку 🙌\n\n" +
-                    "Для уточнения времени и даты свяжитесь с 👉 @bapetaype",
+                    "Спасибо за покупку 🙌\n\nСвяжитесь с 👉 @bapetaype",
                     replyMarkup: new InlineKeyboardMarkup(
                         InlineKeyboardButton.WithCallbackData("⬅️ Главное меню", "main_menu")
                     ),
@@ -205,7 +203,7 @@ class Program
 
     static Task HandleErrorAsync(ITelegramBotClient bot, Exception ex, CancellationToken ct)
     {
-        Console.WriteLine(ex.Message);
+        Console.WriteLine(ex);
         return Task.CompletedTask;
     }
 }
