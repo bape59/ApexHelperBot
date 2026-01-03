@@ -25,7 +25,7 @@ class Program
         var me = await bot.GetMe();
         Console.WriteLine($"Бот запущен: @{me.Username}");
 
-        // 🔥 КРИТИЧЕСКИ ВАЖНО для Railway (бот живёт всегда)
+        // важно для Railway
         await Task.Delay(-1);
     }
 
@@ -37,7 +37,7 @@ class Program
         {
             new [] { InlineKeyboardButton.WithCallbackData("💪 Тренировки / Coaching", "training_info") },
             new [] { InlineKeyboardButton.WithCallbackData("🔥 Рейтинговая лестница / Rumble", "service_rumble") },
-            new [] { InlineKeyboardButton.WithCallbackData("📚 Гайды(скоро)", "service_guides") }
+            new [] { InlineKeyboardButton.WithCallbackData("🆘 Помощь с рангом", "rank_help") }
         });
 
         await bot.SendMessage(
@@ -86,6 +86,12 @@ class Program
             new [] { InlineKeyboardButton.WithCallbackData("⬅️ Главное меню", "main_menu") }
         });
 
+    static InlineKeyboardMarkup UnderstoodButton() =>
+        new InlineKeyboardMarkup(new[]
+        {
+            new [] { InlineKeyboardButton.WithCallbackData("✅ Понял", "rank_help_ok") }
+        });
+
     // ================= ОБРАБОТКА =================
 
     static async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
@@ -110,14 +116,36 @@ class Program
                 await SendMainMenu(bot, chatId, ct);
                 break;
 
+            // ========= ПОМОЩЬ С РАНГОМ =========
+
+            case "rank_help":
+                await bot.SendMessage(
+                    chatId,
+                    "Чтобы ознакомиться с услугами помощи свяжитесь с 👉 @bapetaype",
+                    replyMarkup: UnderstoodButton(),
+                    cancellationToken: ct
+                );
+                break;
+
+            case "rank_help_ok":
+                await bot.SendMessage(
+                    chatId,
+                    "Ждём вашего обращения и будем рады помочь 🙌",
+                    replyMarkup: new InlineKeyboardMarkup(
+                        InlineKeyboardButton.WithCallbackData("⬅️ Главное меню", "main_menu")
+                    ),
+                    cancellationToken: ct
+                );
+                break;
+
+            // ========= ТРЕНИРОВКИ =========
+
             case "training_info":
                 await bot.SendMessage(
                     chatId,
-                    "Тренировочный процесс построен следующим образом:\n\n" +
-                    "Вы записываете то, как вы играете один или с друзьями и приходите на тренировку со своими записями.\n\n" +
-                    "Мы разбираем демо, выявляем ошибки, затем можем идти играть вместе.\n\n" +
-                    "Тренер в лайв-формате смотрит за вашими действиями и корректирует их.\n\n" +
-                    "Все ошибки и моменты для улучшения озвучиваются в процессе или в конце тренировки.",
+                    "Тренировочный процесс:\n\n" +
+                    "Разбор демо, выявление ошибок и совместная игра.\n" +
+                    "Тренер корректирует действия в реальном времени.",
                     replyMarkup: TrainingStart(),
                     cancellationToken: ct
                 );
@@ -126,7 +154,7 @@ class Program
             case "training_want":
                 await bot.SendMessage(
                     chatId,
-                    "Стоимость 1 часа тренировки:\n\n💰 1300 рублей / 15$",
+                    "Стоимость 1 часа:\n\n💰 1300 рублей / 15$",
                     replyMarkup: AgreeButton(),
                     cancellationToken: ct
                 );
@@ -135,21 +163,23 @@ class Program
             case "training_agree":
                 await bot.SendMessage(
                     chatId,
-                    "Реквизиты для оплаты:\n\n" +
-                    "1) СБП: 79964821339 | Т банк / Сбер\n" +
-                    "2) Криптовалюта/PayPal и др. по запросу в ЛС -> @bapetaype\n\n" +
-                    "После оплаты и нажмите ✅ Подтвердить",
+                    "Реквизиты:\n\n" +
+                    "1) СБП: 79964821339\n" +
+                    "2) Крипта / PayPal — в ЛС 👉 @bapetaype\n\n" +
+                    "После оплаты нажмите ✅ Подтвердить",
                     replyMarkup: PaymentButtons(),
                     cancellationToken: ct
                 );
                 break;
 
+            // ========= RUMBLE =========
+
             case "service_rumble":
                 await bot.SendMessage(
                     chatId,
-                    "Рейтинговая лестница (Rumble) — временный ивент ранкеда.\n\n" +
-                    "Вы играете 5 лучших игр и занимаете место в таблице.\n\n" +
-                    "Топ 9 игроков получают интерактивный полёт.",
+                    "Rumble — временный ивент ранкеда.\n\n" +
+                    "5 лучших игр → место в таблице.\n" +
+                    "Топ 9 получают интерактивный полёт.",
                     replyMarkup: RumbleStart(),
                     cancellationToken: ct
                 );
@@ -168,9 +198,6 @@ class Program
                 await bot.SendMessage(
                     chatId,
                     "💰 10 000 рублей за задание\n\n" +
-                    "Реквизиты:\n" +
-                    "1) СБП: 79964821339\n" +
-                    "2) Криптовалюта\n\n" +
                     "После оплаты нажмите ✅ Подтвердить",
                     replyMarkup: PaymentButtons(),
                     cancellationToken: ct
@@ -191,7 +218,7 @@ class Program
             case "confirm_payment":
                 await bot.SendMessage(
                     chatId,
-                    "Спасибо за покупку 🙌\n\nСвяжитесь с 👉 @bapetaype",
+                    "Спасибо за покупку 🙌\nСвяжитесь с 👉 @bapetaype",
                     replyMarkup: new InlineKeyboardMarkup(
                         InlineKeyboardButton.WithCallbackData("⬅️ Главное меню", "main_menu")
                     ),
