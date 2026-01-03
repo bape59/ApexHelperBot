@@ -37,7 +37,7 @@ class Program
         {
             new [] { InlineKeyboardButton.WithCallbackData("💪 Тренировки / Coaching", "training_info") },
             new [] { InlineKeyboardButton.WithCallbackData("🔥 Рейтинговая лестница / Rumble", "service_rumble") },
-            new [] { InlineKeyboardButton.WithCallbackData("📚 Гайды", "service_guides") }
+            new [] { InlineKeyboardButton.WithCallbackData("📚 Гайды(скоро)", "service_guides") }
         });
 
         await bot.SendMessage(
@@ -137,8 +137,8 @@ class Program
                     chatId,
                     "Реквизиты для оплаты:\n\n" +
                     "1) СБП: 79964821339 | Т банк / Сбер\n" +
-                    "2) Криптовалюта (напишите в ЛС)\n\n" +
-                    "После оплаты нажмите ✅ Подтвердить",
+                    "2) Криптовалюта/PayPal и др. по запросу в ЛС -> @bapetaype\n\n" +
+                    "После оплаты и нажмите ✅ Подтвердить",
                     replyMarkup: PaymentButtons(),
                     cancellationToken: ct
                 );
