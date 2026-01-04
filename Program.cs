@@ -6,7 +6,7 @@ using Telegram.Bot.Types.ReplyMarkups;
 
 class Program
 {
-    const string MANAGER_USERNAME = "@bapetaype";
+    const string MANAGER_USERNAME = "bapetaype";
 
     static Dictionary<long, string> SelectedRank = new();
     static Dictionary<long, string> SelectedPoints = new();
@@ -20,15 +20,22 @@ class Program
         var bot = new TelegramBotClient(token);
         using var cts = new CancellationTokenSource();
 
+        var receiverOptions = new ReceiverOptions
+        {
+            AllowedUpdates = Array.Empty<UpdateType>()
+        };
+
         bot.StartReceiving(
-            HandleUpdateAsync,
-            HandleErrorAsync,
-            new ReceiverOptions { AllowedUpdates = Array.Empty<UpdateType>() },
-            cts.Token
+            updateHandler: HandleUpdateAsync,
+            errorHandler: HandleErrorAsync,
+            receiverOptions: receiverOptions,
+            cancellationToken: cts.Token
         );
 
-        Console.WriteLine($"Бот запущен: @{(await bot.GetMe()).Username}");
-        await Task.Delay(-1);
+        var me = await bot.GetMe();
+        Console.WriteLine($"Бот запущен: @{me.Username}");
+
+        await Task.Delay(Timeout.Infinite, cts.Token);
     }
 
     // ================= КНОПКИ =================
@@ -36,59 +43,69 @@ class Program
     static InlineKeyboardMarkup MainMenu() =>
         new(new[]
         {
-            new [] { InlineKeyboardButton.WithCallbackData("🔥 Рейтинговая лестница / Rumble", "service_rumble") },
-            new [] { InlineKeyboardButton.WithCallbackData("🆘 Помощь с рангом", "rank_help") }
+            new[] { InlineKeyboardButton.WithCallbackData("🔥 Рейтинговая лестница / Rumble", "service_rumble") },
+            new[] { InlineKeyboardButton.WithCallbackData("🎓 Тренировки / Coaching", "service_coaching") },
+            new[] { InlineKeyboardButton.WithCallbackData("🆘 Помощь с рангом", "rank_help") }
         });
 
-    static InlineKeyboardMarkup RumbleStart() =>
+    static InlineKeyboardMarkup OkNext(string next) =>
         new(new[]
         {
-            new [] { InlineKeyboardButton.WithCallbackData("🤝 Вместе", "rumble_together") },
-            new [] { InlineKeyboardButton.WithCallbackData("⬅️ Главное меню", "main_menu") }
+            new[] { InlineKeyboardButton.WithCallbackData("✅ Понял, что дальше", next) }
         });
 
     static InlineKeyboardMarkup RankSelect() =>
         new(new[]
         {
-            new [] { InlineKeyboardButton.WithCallbackData("🟡 GOLD и ниже", "rank_gold") },
-            new [] { InlineKeyboardButton.WithCallbackData("🔵 PLAT", "rank_plat") },
-            new [] { InlineKeyboardButton.WithCallbackData("🟣 DIAMOND", "rank_diamond") },
-            new [] { InlineKeyboardButton.WithCallbackData("🔴 MASTER+", "rank_master") },
+            new[] { InlineKeyboardButton.WithCallbackData("🟡 GOLD и ниже", "rank_gold") },
+            new[] { InlineKeyboardButton.WithCallbackData("🔵 PLAT", "rank_plat") },
+            new[] { InlineKeyboardButton.WithCallbackData("🟣 DIAMOND", "rank_diamond") },
+            new[] { InlineKeyboardButton.WithCallbackData("🔴 MASTER+", "rank_master") }
         });
 
     static InlineKeyboardMarkup PointsSelect() =>
         new(new[]
         {
-            new [] { InlineKeyboardButton.WithCallbackData("≤ 1500", "pts_low") },
-            new [] { InlineKeyboardButton.WithCallbackData("1500–2000", "pts_mid") },
-            new [] { InlineKeyboardButton.WithCallbackData("2000+", "pts_high") },
+            new[] { InlineKeyboardButton.WithCallbackData("≤ 1500", "pts_low") },
+            new[] { InlineKeyboardButton.WithCallbackData("1500–2000", "pts_mid") },
+            new[] { InlineKeyboardButton.WithCallbackData("2000+", "pts_high") }
         });
 
-    static InlineKeyboardMarkup AfterPrice() =>
+    static InlineKeyboardMarkup PayMenu(string cb) =>
         new(new[]
         {
-            new [] { InlineKeyboardButton.WithCallbackData("💳 Оплатить", "rumble_pay") },
-            new [] { InlineKeyboardButton.WithCallbackData("❓ Остались вопросы", "rumble_info") },
-            new [] { InlineKeyboardButton.WithCallbackData("⬅️ Главное меню", "main_menu") }
+            new[] { InlineKeyboardButton.WithCallbackData("💳 Получить реквизиты", cb) },
+            new[] { InlineKeyboardButton.WithCallbackData("⬅️ Главное меню", "main_menu") }
         });
 
     static InlineKeyboardMarkup AfterPay() =>
         new(new[]
         {
-            new [] { InlineKeyboardButton.WithCallbackData("📸 Я оплатил", "rumble_paid") },
-            new [] { InlineKeyboardButton.WithCallbackData("⬅️ Главное меню", "main_menu") }
+            new[] { InlineKeyboardButton.WithCallbackData("📸 Я оплатил", "paid_done") }
+        });
+
+    static InlineKeyboardMarkup ManagerActions(long chatId) =>
+        new(new[]
+        {
+            new[] { InlineKeyboardButton.WithCallbackData("✅ Подтвердить оплату", $"mgr_ok_{chatId}") },
+            new[] { InlineKeyboardButton.WithCallbackData("❌ Отклонить", $"mgr_fail_{chatId}") }
         });
 
     // ================= ОБРАБОТКА =================
 
     static async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
     {
-        // === Приём скриншота ===
-        if (update.Type == UpdateType.Message &&
-            update.Message!.Photo != null &&
+        // === Скриншот ===
+        if (update.Message?.Photo != null &&
             WaitingForScreenshot.Contains(update.Message.Chat.Id))
         {
-            await ForwardScreenshotToManager(bot, update.Message, ct);
+            await bot.ForwardMessage(
+                chatId: $"@{MANAGER_USERNAME}",
+                fromChatId: update.Message.Chat.Id,
+                messageId: update.Message.MessageId,
+                cancellationToken: ct
+            );
+
             WaitingForScreenshot.Remove(update.Message.Chat.Id);
 
             await bot.SendMessage(
@@ -99,56 +116,91 @@ class Program
             return;
         }
 
-        if (update.Type == UpdateType.Message && update.Message?.Text == "/start")
+        // === /start ===
+        if (update.Message?.Text == "/start")
         {
-            await bot.SendMessage(update.Message.Chat.Id, "Главное меню", replyMarkup: MainMenu(), cancellationToken: ct);
+            await bot.SendMessage(
+                update.Message.Chat.Id,
+                "Главное меню",
+                replyMarkup: MainMenu(),
+                cancellationToken: ct
+            );
             return;
         }
 
-        if (update.Type != UpdateType.CallbackQuery) return;
+        if (update.CallbackQuery == null) return;
 
-        var cb = update.CallbackQuery!;
+        var cb = update.CallbackQuery;
         var chatId = cb.Message!.Chat.Id;
         var user = cb.From;
 
         await bot.AnswerCallbackQuery(cb.Id, cancellationToken: ct);
 
+        if (cb.Data.StartsWith("mgr_") && cb.From.Username != MANAGER_USERNAME)
+            return;
+
         switch (cb.Data)
         {
             case "main_menu":
-                await bot.SendMessage(chatId, "Главное меню", replyMarkup: MainMenu(), cancellationToken: ct);
-                break;
-
-            case "service_rumble":
-                await bot.SendMessage(
+                await bot.EditMessageText(
                     chatId,
-                    "🏆 Рейтинговая лестница (Rumble)\n\n" +
-                    "Временный ивент ранкеда.\n" +
-                    "Необходимо удержаться в ТОП-9 таблицы лидеров.\n\n" +
-                    "Для получения интерактивного полёта нужно удержать 2 рамбла за сплит.",
-                    replyMarkup: RumbleStart(),
+                    cb.Message.MessageId,
+                    "Главное меню",
+                    replyMarkup: MainMenu(),
                     cancellationToken: ct
                 );
                 break;
 
-            case "rumble_together":
-                await bot.SendMessage(chatId, "Выберите ваш ранг:", replyMarkup: RankSelect(), cancellationToken: ct);
+            case "service_rumble":
+                await bot.EditMessageText(
+                    chatId,
+                    cb.Message.MessageId,
+                    "🏆 Рейтинговая лестница (Rumble)\n\n" +
+                    "Рейтинговая лестница(он же Rumble) представляет собой временный ивент(событие) рейтинговых лиг(ранкеда) ,в котором игрокам нужно соревноваться в течении нескольких дней и удержаться в топ 9 таблицы лидеров ." +
+                    "Для получения особого интерактивного полета ,цвет которого меняется в зависимости от вашего ранга,вам нужно удержаться в таблице две(2) лестницы(рамбла) в течении всего разделения(сплита) рейтинговой лиги." +
+                    "Так как сложно ладдера определяется индвидуально и чем лучше статистика вашего аккаунта ,тем больше очков вам понадобится",
+                    replyMarkup: OkNext("rumble_rank"),
+                    cancellationToken: ct
+                );
                 break;
 
-            case string r when r.StartsWith("rank_"):
+            case "rumble_rank":
+                await bot.EditMessageText(
+                    chatId,
+                    cb.Message.MessageId,
+                    "Выберите ваш ранг:",
+                    replyMarkup: RankSelect(),
+                    cancellationToken: ct
+                );
+                break;
+
+            case var r when r.StartsWith("rank_"):
                 SelectedRank[chatId] = r;
-                await bot.SendMessage(chatId, "Выберите очки:", replyMarkup: PointsSelect(), cancellationToken: ct);
+                await bot.EditMessageText(
+                    chatId,
+                    cb.Message.MessageId,
+                    "Выберите количество очков:",
+                    replyMarkup: PointsSelect(),
+                    cancellationToken: ct
+                );
                 break;
 
-            case string p when p.StartsWith("pts_"):
+            case var p when p.StartsWith("pts_"):
                 SelectedPoints[chatId] = p;
-                await bot.SendMessage(chatId, CalculatePrice(chatId), replyMarkup: AfterPrice(), cancellationToken: ct);
+                await bot.EditMessageText(
+                    chatId,
+                    cb.Message.MessageId,
+                    CalculatePrice(chatId),
+                    replyMarkup: PayMenu("rumble_pay"),
+                    cancellationToken: ct
+                );
                 break;
 
             case "rumble_pay":
                 await SendOrderToManager(bot, chatId, user, ct);
-                await bot.SendMessage(
+                await bot.EditMessageText(
                     chatId,
+                    cb.Message.MessageId,
                     "💳 Реквизиты:\n\n" +
                     "СБП: 79964821339\n" +
                     "Крипта / PayPal — @bapetaype\n\n" +
@@ -158,56 +210,60 @@ class Program
                 );
                 break;
 
-            case "rumble_paid":
+            case "paid_done":
                 WaitingForScreenshot.Add(chatId);
-                await bot.SendMessage(
+                await bot.EditMessageText(
                     chatId,
+                    cb.Message.MessageId,
                     "📸 Пришлите скриншот оплаты одним изображением.",
                     cancellationToken: ct
                 );
                 break;
 
-            case "rumble_info":
+            case var m when m.StartsWith("mgr_ok_"):
+                {
+                    var id = long.Parse(m.Replace("mgr_ok_", ""));
+                    await bot.SendMessage(id, "✅ Оплата подтверждена!", cancellationToken: ct);
+                    break;
+                }
+
+            case var m when m.StartsWith("mgr_fail_"):
+                {
+                    var id = long.Parse(m.Replace("mgr_fail_", ""));
+                    await bot.SendMessage(id, "❌ Оплата не подтверждена.", cancellationToken: ct);
+                    break;
+                }
+
             case "rank_help":
-                await bot.SendMessage(chatId, "Свяжитесь 👉 @bapetaype", cancellationToken: ct);
+                await bot.EditMessageText(
+                    chatId,
+                    cb.Message.MessageId,
+                    "Свяжитесь 👉 @bapetaype",
+                    replyMarkup: MainMenu(),
+                    cancellationToken: ct
+                );
                 break;
         }
     }
 
-    // ================= МЕНЕДЖЕР =================
-
-    static async Task SendOrderToManager(ITelegramBotClient bot, long chatId, User user, CancellationToken ct)
+    static async Task SendOrderToManager(
+        ITelegramBotClient bot,
+        long chatId,
+        User user,
+        CancellationToken ct)
     {
-        string rank = SelectedRank[chatId].Replace("rank_", "").ToUpper();
-        string pts = SelectedPoints[chatId] switch
-        {
-            "pts_low" => "≤1500",
-            "pts_mid" => "1500–2000",
-            _ => "2000+"
-        };
-
         await bot.SendMessage(
-            MANAGER_USERNAME,
-            $"🆕 Новая заявка RUMBLE\n\n" +
-            $"👤 @{user.Username ?? "без username"}\n" +
-            $"🆔 {chatId}\n\n" +
-            $"🏅 {rank}\n📊 {pts}\n\n" +
-            $"⏰ {DateTime.Now:dd.MM.yyyy HH:mm}",
+            chatId: $"@{MANAGER_USERNAME}",
+            text:
+                $"🆕 Новая заявка\n" +
+                $"👤 @{user.Username ?? "без username"}\n" +
+                $"🆔 {chatId}\n" +
+                $"⏰ {DateTime.Now:dd.MM.yyyy HH:mm}\n\n" +
+                $"Статус: ⏳ Ожидает подтверждения",
+            replyMarkup: ManagerActions(chatId),
             cancellationToken: ct
         );
     }
-
-    static async Task ForwardScreenshotToManager(ITelegramBotClient bot, Message msg, CancellationToken ct)
-    {
-        await bot.ForwardMessage(
-            MANAGER_USERNAME,
-            msg.Chat.Id,
-            msg.MessageId,
-            cancellationToken: ct
-        );
-    }
-
-    // ================= ЦЕНА =================
 
     static string CalculatePrice(long chatId)
     {
@@ -225,13 +281,15 @@ class Program
         };
 
         string party = r == "rank_diamond" ? "2 игрока" : "1 игрок";
-
         return $"💰 Стоимость: {price} ₽\n👥 Пати: {party}";
     }
 
-    static Task HandleErrorAsync(ITelegramBotClient bot, Exception ex, CancellationToken ct)
+    static Task HandleErrorAsync(
+        ITelegramBotClient bot,
+        Exception exception,
+        CancellationToken ct)
     {
-        Console.WriteLine(ex);
+        Console.WriteLine(exception);
         return Task.CompletedTask;
     }
 }
