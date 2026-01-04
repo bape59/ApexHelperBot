@@ -153,16 +153,15 @@ class Program
             case "rumble_pay":
             case "coach_pay":
                 await SendOrderToManager(bot, chatId, user, ct);
-                await bot.EditMessageText(
-                    chatId,
-                    cb.Message.MessageId,
-                    "💳 Реквизиты:\n\n" +
-                    "СБП: 79964821339\n" +
-                    "Крипта / PayPal — @bapetaype\n\n" +
-                    "После оплаты нажмите «📸 Я оплатил» и пришлите скриншот.",
-                    replyMarkup: AfterPay(),
-                    cancellationToken: ct
-                );
+                await bot.SendMessage(
+                  chatId,
+                          "💳 Реквизиты:\n\n" +
+                         "СБП: 79964821339\n" +
+                         "Крипта / PayPal — @bapetaype\n\n" +
+                         "После оплаты нажмите «📸 Я оплатил» и пришлите скриншот.",
+                         replyMarkup: AfterPay(),
+                         cancellationToken: ct
+                          );
                 break;
 
             case "paid_done":
