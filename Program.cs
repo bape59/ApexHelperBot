@@ -81,7 +81,7 @@ class Program
 
     static async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
     {
-        // скриншот
+        // ===== Приём скриншота =====
         if (update.Message?.Photo != null &&
             WaitingForScreenshot.Contains(update.Message.Chat.Id))
         {
@@ -104,7 +104,12 @@ class Program
 
         if (update.Message?.Text == "/start")
         {
-            await bot.SendMessage(update.Message.Chat.Id, "Главное меню", replyMarkup: MainMenu(), cancellationToken: ct);
+            await bot.SendMessage(
+                update.Message.Chat.Id,
+                "Главное меню",
+                replyMarkup: MainMenu(),
+                cancellationToken: ct
+            );
             return;
         }
 
@@ -112,14 +117,19 @@ class Program
 
         var cb = update.CallbackQuery;
         var chatId = cb.Message!.Chat.Id;
-        var user = cb.From;
 
         await bot.AnswerCallbackQuery(cb.Id, cancellationToken: ct);
 
         switch (cb.Data)
         {
             case "main_menu":
-                await bot.EditMessageText(chatId, cb.Message.MessageId, "Главное меню", replyMarkup: MainMenu(), cancellationToken: ct);
+                await bot.EditMessageText(
+                    chatId,
+                    cb.Message.MessageId,
+                    "Главное меню",
+                    replyMarkup: MainMenu(),
+                    cancellationToken: ct
+                );
                 break;
 
             // ===== RUMBLE =====
@@ -137,36 +147,59 @@ class Program
                 break;
 
             case "rumble_rank":
-                await bot.EditMessageText(chatId, cb.Message.MessageId, "Выберите ваш ранг:", replyMarkup: RankSelect(), cancellationToken: ct);
+                await bot.EditMessageText(
+                    chatId,
+                    cb.Message.MessageId,
+                    "Выберите ваш ранг:",
+                    replyMarkup: RankSelect(),
+                    cancellationToken: ct
+                );
                 break;
 
             case var r when r.StartsWith("rank_"):
                 SelectedRank[chatId] = r;
-                await bot.EditMessageText(chatId, cb.Message.MessageId, "Выберите количество очков:", replyMarkup: PointsSelect(), cancellationToken: ct);
+                await bot.EditMessageText(
+                    chatId,
+                    cb.Message.MessageId,
+                    "Выберите количество очков:",
+                    replyMarkup: PointsSelect(),
+                    cancellationToken: ct
+                );
                 break;
 
             case var p when p.StartsWith("pts_"):
                 SelectedPoints[chatId] = p;
-                await bot.EditMessageText(chatId, cb.Message.MessageId, CalculatePrice(chatId), replyMarkup: PayMenu("rumble_pay"), cancellationToken: ct);
+                await bot.EditMessageText(
+                    chatId,
+                    cb.Message.MessageId,
+                    CalculatePrice(chatId),
+                    replyMarkup: PayMenu("rumble_pay"),
+                    cancellationToken: ct
+                );
                 break;
 
+            // ===== ВЫДАЧА РЕКВИЗИТОВ (ИСПРАВЛЕНО) =====
             case "rumble_pay":
             case "coach_pay":
-                await SendOrderToManager(bot, chatId, user, ct);
                 await bot.SendMessage(
-                  chatId,
-                          "💳 Реквизиты:\n\n" +
-                         "СБП: 79964821339\n" +
-                         "Крипта / PayPal — @bapetaype\n\n" +
-                         "После оплаты нажмите «📸 Я оплатил» и пришлите скриншот.",
-                         replyMarkup: AfterPay(),
-                         cancellationToken: ct
-                          );
+                    chatId,
+                    "💳 Реквизиты:\n\n" +
+                    "СБП: 79964821339\n" +
+                    "Крипта / PayPal — @bapetaype\n\n" +
+                    "После оплаты нажмите «📸 Я оплатил» и пришлите скриншот.",
+                    replyMarkup: AfterPay(),
+                    cancellationToken: ct
+                );
                 break;
 
             case "paid_done":
                 WaitingForScreenshot.Add(chatId);
-                await bot.EditMessageText(chatId, cb.Message.MessageId, "📸 Пришлите скриншот оплаты одним изображением.", cancellationToken: ct);
+                await bot.EditMessageText(
+                    chatId,
+                    cb.Message.MessageId,
+                    "📸 Пришлите скриншот оплаты одним изображением.",
+                    cancellationToken: ct
+                );
                 break;
 
             // ===== COACHING =====
@@ -200,15 +233,6 @@ class Program
                 );
                 break;
         }
-    }
-
-    static async Task SendOrderToManager(ITelegramBotClient bot, long chatId, User user, CancellationToken ct)
-    {
-        await bot.SendMessage(
-            $"@{MANAGER_USERNAME}",
-            $"🆕 Новая заявка\n👤 @{user.Username ?? "без username"}\n🆔 {chatId}\n⏰ {DateTime.Now:dd.MM.yyyy HH:mm}",
-            cancellationToken: ct
-        );
     }
 
     static string CalculatePrice(long chatId)
