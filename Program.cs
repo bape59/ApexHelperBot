@@ -6,7 +6,8 @@ using Telegram.Bot.Types.ReplyMarkups;
 
 class Program
 {
-    const string MANAGER_USERNAME = "bapetaype";
+    // ⬇️ ПОКА ПУСТО — ЗАПОЛНИМ ПОСЛЕ ПРОВЕРКИ
+    const long MANAGER_CHAT_ID = 0;
 
     static Dictionary<long, string> SelectedRank = new();
     static Dictionary<long, string> SelectedPoints = new();
@@ -81,17 +82,19 @@ class Program
 
     static async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
     {
-        // ===== Приём скриншота =====
+        // 🔴 ВЫВОД CHAT ID (ГЛАВНОЕ ДЛЯ ТЕБЯ СЕЙЧАС)
+        if (update.Message != null)
+        {
+            Console.WriteLine($"CHAT ID: {update.Message.Chat.Id}");
+        }
+
+        // ===== ПРИЁМ СКРИНШОТА =====
         if (update.Message?.Photo != null &&
             WaitingForScreenshot.Contains(update.Message.Chat.Id))
         {
-            await bot.ForwardMessage(
-                $"@{MANAGER_USERNAME}",
-                update.Message.Chat.Id,
-                update.Message.MessageId,
-                cancellationToken: ct
-            );
+            Console.WriteLine($"📸 Скриншот от {update.Message.Chat.Id}");
 
+            // ⛔ ПОКА НЕ ПЕРЕСЫЛАЕМ — ТОЛЬКО ПРОВЕРКА
             WaitingForScreenshot.Remove(update.Message.Chat.Id);
 
             await bot.SendMessage(
@@ -178,7 +181,6 @@ class Program
                 );
                 break;
 
-            // ===== ВЫДАЧА РЕКВИЗИТОВ (ИСПРАВЛЕНО) =====
             case "rumble_pay":
             case "coach_pay":
                 await bot.SendMessage(
