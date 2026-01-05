@@ -7,7 +7,8 @@ using Telegram.Bot.Types.ReplyMarkups;
 class Program
 {
     // ⬇️ ПОКА ПУСТО — ЗАПОЛНИМ ПОСЛЕ ПРОВЕРКИ
-    const long MANAGER_CHAT_ID = 0;
+    const long MANAGER_CHAT_ID = 6312652767;
+
 
     static Dictionary<long, string> SelectedRank = new();
     static Dictionary<long, string> SelectedPoints = new();
@@ -83,18 +84,17 @@ class Program
     static async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
     {
         // 🔴 ВЫВОД CHAT ID (ГЛАВНОЕ ДЛЯ ТЕБЯ СЕЙЧАС)
-        if (update.Message != null)
-        {
-            Console.WriteLine($"CHAT ID: {update.Message.Chat.Id}");
-        }
-
-        // ===== ПРИЁМ СКРИНШОТА =====
         if (update.Message?.Photo != null &&
             WaitingForScreenshot.Contains(update.Message.Chat.Id))
         {
-            Console.WriteLine($"📸 Скриншот от {update.Message.Chat.Id}");
+            // 👉 пересылаем скриншот тебе
+            await bot.ForwardMessage(
+                MANAGER_CHAT_ID,
+                update.Message.Chat.Id,
+                update.Message.MessageId,
+                cancellationToken: ct
+            );
 
-            // ⛔ ПОКА НЕ ПЕРЕСЫЛАЕМ — ТОЛЬКО ПРОВЕРКА
             WaitingForScreenshot.Remove(update.Message.Chat.Id);
 
             await bot.SendMessage(
@@ -104,6 +104,7 @@ class Program
             );
             return;
         }
+
 
         if (update.Message?.Text == "/start")
         {
