@@ -159,6 +159,28 @@ class Program
                 await bot.EditMessageText(chatId, cb.Message.MessageId, "Главное меню", replyMarkup: MainMenu(), cancellationToken: ct);
                 break;
 
+            // ===== TRAINING / COACHING (FIX) =====
+            case "service_coaching":
+                await bot.EditMessageText(
+                    chatId,
+                    cb.Message.MessageId,
+                    "Тренировочный процесс представялет собой просмотр(разбор) ваших записей игр (демок) и игра вместе с тренером корректирующим вас и ваши ошибки",
+                    replyMarkup: Next("coach_price"),
+                    cancellationToken: ct
+                );
+                break;
+
+            case "coach_price":
+                OrderNumbers[chatId] = ++GlobalOrderCounter;
+
+                await bot.SendMessage(
+                    chatId,
+                    $"🧾 Заказ #{OrderNumbers[chatId]}\nСтоимость 1-го часа тренировки состовялет 1300 Р или 15$",
+                    replyMarkup: PayMenu("coach_pay"),
+                    cancellationToken: ct
+                );
+                break;
+
             case "rank_help":
                 await bot.EditMessageText(
                     chatId,
@@ -174,6 +196,7 @@ class Program
                 await bot.EditMessageText(chatId, cb.Message.MessageId, "Напишите ваш вопрос одним сообщением.", cancellationToken: ct);
                 break;
 
+            // ===== RUMBLE =====
             case "service_rumble":
                 await bot.EditMessageText(
                     chatId,
