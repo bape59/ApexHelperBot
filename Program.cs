@@ -6,7 +6,6 @@ using Telegram.Bot.Types.ReplyMarkups;
 using System.Text;
 using System.Text.Json;
 using System.Net.Http;
-using System.IO;
 
 class Program
 {
@@ -18,8 +17,8 @@ class Program
     static Dictionary<long, string> SelectedPoints = new();
     static Dictionary<long, string> SelectedService = new();
     static Dictionary<long, int> OrderNumbers = new();
+
     static HashSet<long> WaitingForScreenshot = new();
-    static HashSet<long> WaitingForQuestion = new();
 
     static int GlobalOrderCounter = 1000;
 
@@ -55,13 +54,6 @@ class Program
     static InlineKeyboardMarkup Next(string cb) =>
         new(new[] { new[] { InlineKeyboardButton.WithCallbackData("➡️ Дальше", cb) } });
 
-    static InlineKeyboardMarkup RankHelpMenu() =>
-        new(new[]
-        {
-            new[] { InlineKeyboardButton.WithCallbackData("✍️ Напишу вопрос здесь", "ask_manager") },
-            new[] { InlineKeyboardButton.WithCallbackData("⬅️ Главное меню", "main_menu") }
-        });
-
     static InlineKeyboardMarkup RankSelect() =>
         new(new[]
         {
@@ -93,27 +85,6 @@ class Program
 
     static async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
     {
-        // ===== ВОПРОС МЕНЕДЖЕРУ =====
-        if (update.Message?.Text != null && WaitingForQuestion.Contains(update.Message.Chat.Id))
-        {
-            WaitingForQuestion.Remove(update.Message.Chat.Id);
-
-            await bot.SendMessage(
-                MANAGER_CHAT_ID,
-                $"❓ Вопрос от пользователя\nCHAT ID: {update.Message.Chat.Id}\n\n{update.Message.Text}",
-                cancellationToken: ct
-            );
-
-            await bot.SendMessage(
-                update.Message.Chat.Id,
-                "✅ Сообщение отправлено менеджеру.",
-                replyMarkup: MainMenu(),
-                cancellationToken: ct
-            );
-            return;
-        }
-
-        // ===== СКРИНШОТ ОПЛАТЫ =====
         if (update.Message?.Photo != null && WaitingForScreenshot.Contains(update.Message.Chat.Id))
         {
             WaitingForScreenshot.Remove(update.Message.Chat.Id);
@@ -142,12 +113,7 @@ class Program
 
         if (update.Message?.Text == "/start")
         {
-            await bot.SendMessage(
-                update.Message.Chat.Id,
-                "Главное меню",
-                replyMarkup: MainMenu(),
-                cancellationToken: ct
-            );
+            await bot.SendMessage(update.Message.Chat.Id, "Главное меню", replyMarkup: MainMenu(), cancellationToken: ct);
             return;
         }
 
@@ -163,23 +129,7 @@ class Program
                 await bot.EditMessageText(chatId, cb.Message.MessageId, "Главное меню", replyMarkup: MainMenu(), cancellationToken: ct);
                 break;
 
-            case "rank_help":
-                await bot.EditMessageText(
-                    chatId,
-                    cb.Message.MessageId,
-                    "Для ознакомления с перечнем услуг свяжитесь с менеджером @bapetaype",
-                    replyMarkup: RankHelpMenu(),
-                    cancellationToken: ct
-                );
-                break;
-
-            case "ask_manager":
-                WaitingForQuestion.Add(chatId);
-                await bot.EditMessageText(chatId, cb.Message.MessageId,
-                    "Напишите ваш вопрос одним сообщением.\nУкажите свой контакт для связи (tg id).",
-                    cancellationToken: ct);
-                break;
-
+            // ===== RUMBLE =====
             case "service_rumble":
                 SelectedService[chatId] = "Рейтинговая лестница / Rumble";
                 await bot.EditMessageText(
@@ -195,46 +145,68 @@ class Program
                 break;
 
             case "rumble_rank":
-                await bot.SendPhoto(
-                    chatId,
-                    new InputFileStream(File.OpenRead("rumble_points.jpg"), "rumble_points.jpg"),
-                    caption:
-                        "Выберите количество очков для топ 9 вашего индивидуального списка\n" +
-                        "(главное меню -> рейтинговая лестница(где режим,сверху) -> вкладка \"состязайтесь\",\n" +
-                        "обратите внимание на вкладку чемпионы лестница(топ 9 имеет минимальное количество очков для ладдера))",
-                    replyMarkup: RankSelect(),
-                    cancellationToken: ct
-                );
+                await bot.EditMessageText(chatId, cb.Message.MessageId, "Выберите ваш ранг:", replyMarkup: RankSelect(), cancellationToken: ct);
                 break;
 
             case var r when r.StartsWith("rank_"):
                 SelectedRank[chatId] = r;
-                await bot.SendMessage(chatId, "Выберите количество очков:", replyMarkup: PointsSelect(), cancellationToken: ct);
+                await bot.EditMessageText(chatId, cb.Message.MessageId, "Выберите количество очков:", replyMarkup: PointsSelect(), cancellationToken: ct);
                 break;
 
             case var p when p.StartsWith("pts_"):
                 SelectedPoints[chatId] = p;
                 OrderNumbers[chatId] = ++GlobalOrderCounter;
 
-                var priceText = CalculatePrice(chatId);
+                var price = CalculateRumblePrice(chatId);
 
-                await SendToGoogleSheets(
-                    chatId,
-                    OrderNumbers[chatId],
-                    SelectedService[chatId],
-                    $"{SelectedRank[chatId]} / {SelectedPoints[chatId]}",
-                    priceText
-                );
+                await SendToGoogleSheets(chatId, OrderNumbers[chatId], SelectedService[chatId],
+                    $"{SelectedRank[chatId]} / {SelectedPoints[chatId]}", price);
 
-                await bot.SendMessage(
+                await bot.EditMessageText(
                     chatId,
-                    $"🧾 Заказ #{OrderNumbers[chatId]}\n{priceText}",
+                    cb.Message.MessageId,
+                    $"🧾 Заказ #{OrderNumbers[chatId]}\n{price}",
                     replyMarkup: PayMenu("rumble_pay"),
                     cancellationToken: ct
                 );
                 break;
 
             case "rumble_pay":
+                await bot.SendMessage(
+                    chatId,
+                    "💳 Реквизиты:\n\nСБП: 79964821339\nКрипта / PayPal — @bapetaype\n\nПосле оплаты нажмите «📸 Я оплатил»",
+                    replyMarkup: AfterPay(),
+                    cancellationToken: ct
+                );
+                break;
+
+            // ===== COACHING =====
+            case "service_coaching":
+                SelectedService[chatId] = "Тренировки / Coaching";
+                await bot.EditMessageText(
+                    chatId,
+                    cb.Message.MessageId,
+                    "Тренировочный процесс представялет собой просмотр(разбор) ваших записей игр (демок) и игра вместе с тренером корректирующим вас и ваши ошибки",
+                    replyMarkup: Next("coach_price"),
+                    cancellationToken: ct
+                );
+                break;
+
+            case "coach_price":
+                OrderNumbers[chatId] = ++GlobalOrderCounter;
+                string coachPrice = "Стоимость 1-го часа тренировки состовялет 1300 Р или 15$";
+
+                await SendToGoogleSheets(chatId, OrderNumbers[chatId], SelectedService[chatId], "1 час тренировки", coachPrice);
+
+                await bot.EditMessageText(
+                    chatId,
+                    cb.Message.MessageId,
+                    $"🧾 Заказ #{OrderNumbers[chatId]}\n{coachPrice}",
+                    replyMarkup: PayMenu("coach_pay"),
+                    cancellationToken: ct
+                );
+                break;
+
             case "coach_pay":
                 await bot.SendMessage(
                     chatId,
@@ -251,33 +223,38 @@ class Program
         }
     }
 
-    static string CalculatePrice(long chatId)
+    static string CalculateRumblePrice(long chatId)
     {
         var r = SelectedRank[chatId];
+        var p = SelectedPoints[chatId];
+
         if (r == "rank_master")
             return "🔴 MASTER+\n💰 От 10 000 ₽\n👥 2 игрока\n⚠️ Только pred-лобби";
 
-        return "💰 Стоимость рассчитывается индивидуально";
+        int price = r switch
+        {
+            "rank_gold" => p == "pts_low" ? 3000 : p == "pts_mid" ? 4000 : 5000,
+            "rank_plat" => p == "pts_low" ? 4000 : p == "pts_mid" ? 5500 : 7000,
+            "rank_diamond" => p == "pts_low" ? 6000 : p == "pts_mid" ? 8000 : 10000,
+            _ => 0
+        };
+
+        string party = r == "rank_diamond" ? "2 игрока" : "1 игрок";
+        return $"💰 Стоимость: {price} ₽\n👥 Пати: {party}";
     }
 
-    // ===== GOOGLE SHEETS =====
     static async Task SendToGoogleSheets(long chatId, int orderId, string service, string details, string price)
     {
         using var client = new HttpClient();
-
-        var payload = new
+        var json = JsonSerializer.Serialize(new
         {
             chat_id = chatId,
-            service = service,
+            service,
             details = $"Заказ #{orderId} | {details}",
-            price = price
-        };
+            price
+        });
 
-        var json = JsonSerializer.Serialize(payload);
-        await client.PostAsync(
-            GOOGLE_SHEETS_URL,
-            new StringContent(json, Encoding.UTF8, "application/json")
-        );
+        await client.PostAsync(GOOGLE_SHEETS_URL, new StringContent(json, Encoding.UTF8, "application/json"));
     }
 
     static Task HandleErrorAsync(ITelegramBotClient bot, Exception ex, CancellationToken ct)
