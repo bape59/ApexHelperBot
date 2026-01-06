@@ -59,6 +59,13 @@ class Program
             new[] { InlineKeyboardButton.WithCallbackData("✍️ Другим способом", "rumble_other") }
         });
 
+    static InlineKeyboardMarkup RankHelpMenu() =>
+        new(new[]
+        {
+            new[] { InlineKeyboardButton.WithCallbackData("✍️ Написать вопрос здесь", "ask_question") },
+            new[] { InlineKeyboardButton.WithUrl("Связаться напрямую с @bapetaype", "https://t.me/bapetaype") }
+        });
+
     static InlineKeyboardMarkup RankSelect() =>
         new(new[]
         {
@@ -101,7 +108,8 @@ class Program
                 cancellationToken: ct
             );
 
-            await bot.SendMessage(update.Message.Chat.Id, "✅ Сообщение отправлено менеджеру.",
+            await bot.SendMessage(update.Message.Chat.Id,
+                "✅ Сообщение отправлено менеджеру.",
                 replyMarkup: MainMenu(), cancellationToken: ct);
             return;
         }
@@ -144,41 +152,48 @@ class Program
         switch (cb.Data)
         {
             case "rank_help":
+                await bot.EditMessageText(chatId, cb.Message.MessageId,
+                    "Напишите ваш вопрос одним сообщением.\nУкажите свой контакт (tg id).\nПример: напишите мне @bapetaype",
+                    replyMarkup: RankHelpMenu(), cancellationToken: ct);
+                break;
+
+            case "ask_question":
                 WaitingForQuestion.Add(chatId);
                 await bot.EditMessageText(chatId, cb.Message.MessageId,
                     "Напишите ваш вопрос одним сообщением.\nУкажите свой контакт (tg id).\nПример: напишите мне @bapetaype",
                     cancellationToken: ct);
                 break;
 
+            // ===== RUMBLE =====
             case "service_rumble":
                 SelectedService[chatId] = "Рейтинговая лестница / Rumble";
-                await bot.EditMessageText(chatId, cb.Message.MessageId,
+                await bot.SendPhoto(
+                    chatId,
+                    new InputFileStream(File.OpenRead("rumble_points.jpg"), "rumble_points.jpg"),
+                    caption:
                     "🏆 Рейтинговая лестница (Rumble)\n\n" +
                     "Рейтинговая лестница(он же Rumble) представляет собой временный ивент(событие) рейтинговых лиг(ранкеда) ,в котором игрокам нужно соревноваться в течении нескольких дней и удержаться в топ 9 таблицы лидеров ." +
                     "Для получения особого интерактивного полета ,цвет которого меняется в зависимости от вашего ранга,вам нужно удержаться в таблице две(2) лестницы(рамбла) в течении всего разделения(сплита) рейтинговой лиги." +
                     "Так как сложно ладдера определяется индвидуально и чем лучше статистика вашего аккаунта ,тем больше очков вам понадобится",
-                    replyMarkup: Next("rumble_method"), cancellationToken: ct);
+                    replyMarkup: Next("rumble_method"),
+                    cancellationToken: ct
+                );
                 break;
 
             case "rumble_method":
-                await bot.EditMessageText(chatId, cb.Message.MessageId,
-                    "Как вы хотите выполнить?",
+                await bot.SendMessage(chatId, "Как вы хотите выполнить?",
                     replyMarkup: RumbleMethod(), cancellationToken: ct);
                 break;
 
             case "rumble_other":
                 WaitingForQuestion.Add(chatId);
-                await bot.EditMessageText(chatId, cb.Message.MessageId,
+                await bot.SendMessage(chatId,
                     "Напишите ваш вопрос одним сообщением.\nУкажите свой контакт для связи (tg id).\nПример: напишите мне @bapetaype",
-                    replyMarkup: new InlineKeyboardMarkup(
-                        InlineKeyboardButton.WithUrl("Либо свяжитесь напрямую с @bapetaype", "https://t.me/bapetaype")),
-                    cancellationToken: ct);
+                    replyMarkup: RankHelpMenu(), cancellationToken: ct);
                 break;
 
             case "rumble_with_coach":
-                await bot.SendPhoto(chatId,
-                    new InputFileStream(File.OpenRead("rumble_points.jpg"), "rumble_points.jpg"),
-                    caption: "Выберите количество очков для топ 9 вашего индивидуального списка",
+                await bot.SendMessage(chatId, "Выберите ваш ранг:",
                     replyMarkup: RankSelect(), cancellationToken: ct);
                 break;
 
@@ -196,6 +211,21 @@ class Program
                     replyMarkup: PayMenu("pay"), cancellationToken: ct);
                 break;
 
+            // ===== COACHING =====
+            case "service_coaching":
+                SelectedService[chatId] = "Тренировки / Coaching";
+                await bot.EditMessageText(chatId, cb.Message.MessageId,
+                    "Тренировочный процесс представялет собой просмотр(разбор) ваших записей игр (демок) и игра вместе с тренером корректирующим вас и ваши ошибки",
+                    replyMarkup: Next("coach_price"), cancellationToken: ct);
+                break;
+
+            case "coach_price":
+                OrderNumbers[chatId] = ++GlobalOrderCounter;
+                await bot.EditMessageText(chatId, cb.Message.MessageId,
+                    $"🧾 Заказ #{OrderNumbers[chatId]}\nСтоимость 1-го часа тренировки состовялет 1300 Р или 15$",
+                    replyMarkup: PayMenu("pay"), cancellationToken: ct);
+                break;
+
             case "pay":
                 await bot.SendMessage(chatId,
                     "💳 Реквизиты:\n\nСБП: 79964821339\nКрипта / PayPal — @bapetaype\n\nПосле оплаты нажмите «📸 Я оплатил»",
@@ -206,6 +236,11 @@ class Program
                 WaitingForScreenshot.Add(chatId);
                 await bot.EditMessageText(chatId, cb.Message.MessageId,
                     "📸 Пришлите скриншот оплаты.", cancellationToken: ct);
+                break;
+
+            case "main_menu":
+                await bot.EditMessageText(chatId, cb.Message.MessageId,
+                    "Главное меню", replyMarkup: MainMenu(), cancellationToken: ct);
                 break;
         }
     }
