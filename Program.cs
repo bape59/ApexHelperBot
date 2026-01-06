@@ -6,7 +6,7 @@ using Telegram.Bot.Types.ReplyMarkups;
 using System.Text;
 using System.Text.Json;
 using System.Net.Http;
-
+//////////////////////
 class Program
 {
     const long MANAGER_CHAT_ID = 6312652767;
