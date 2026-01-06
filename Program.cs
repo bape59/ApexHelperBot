@@ -1,16 +1,22 @@
 ﻿using Telegram.Bot;
-using System.IO;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
+using System.Text;
+using System.Text.Json;
+using System.Net.Http;
+using System.IO;
 
 class Program
 {
     const long MANAGER_CHAT_ID = 6312652767;
+    const string GOOGLE_SHEETS_URL =
+        "https://script.google.com/macros/s/AKfycbzKoFvDQFPcmFvFo5sMHTjH2IwfQ8EvJS-jijn2JsdO4MlXQdJY2_EN1sYhEQCLKU47/exec";
 
     static Dictionary<long, string> SelectedRank = new();
     static Dictionary<long, string> SelectedPoints = new();
+    static Dictionary<long, string> SelectedService = new();
     static Dictionary<long, int> OrderNumbers = new();
     static HashSet<long> WaitingForScreenshot = new();
     static HashSet<long> WaitingForQuestion = new();
@@ -101,10 +107,9 @@ class Program
             await bot.SendMessage(
                 update.Message.Chat.Id,
                 "✅ Сообщение отправлено менеджеру.",
+                replyMarkup: MainMenu(),
                 cancellationToken: ct
             );
-
-            await SendMainMenuAlways(bot, update.Message.Chat.Id, ct);
             return;
         }
 
@@ -129,10 +134,9 @@ class Program
             await bot.SendMessage(
                 update.Message.Chat.Id,
                 "✅ Скриншот получен!\nМенеджер проверит оплату и свяжется с вами.",
+                replyMarkup: MainMenu(),
                 cancellationToken: ct
             );
-
-            await SendMainMenuAlways(bot, update.Message.Chat.Id, ct);
             return;
         }
 
@@ -159,28 +163,6 @@ class Program
                 await bot.EditMessageText(chatId, cb.Message.MessageId, "Главное меню", replyMarkup: MainMenu(), cancellationToken: ct);
                 break;
 
-            // ===== TRAINING / COACHING (FIX) =====
-            case "service_coaching":
-                await bot.EditMessageText(
-                    chatId,
-                    cb.Message.MessageId,
-                    "Тренировочный процесс представялет собой просмотр(разбор) ваших записей игр (демок) и игра вместе с тренером корректирующим вас и ваши ошибки",
-                    replyMarkup: Next("coach_price"),
-                    cancellationToken: ct
-                );
-                break;
-
-            case "coach_price":
-                OrderNumbers[chatId] = ++GlobalOrderCounter;
-
-                await bot.SendMessage(
-                    chatId,
-                    $"🧾 Заказ #{OrderNumbers[chatId]}\nСтоимость 1-го часа тренировки состовялет 1300 Р или 15$",
-                    replyMarkup: PayMenu("coach_pay"),
-                    cancellationToken: ct
-                );
-                break;
-
             case "rank_help":
                 await bot.EditMessageText(
                     chatId,
@@ -193,18 +175,20 @@ class Program
 
             case "ask_manager":
                 WaitingForQuestion.Add(chatId);
-                await bot.EditMessageText(chatId, cb.Message.MessageId, "Напишите ваш вопрос одним сообщением.", cancellationToken: ct);
+                await bot.EditMessageText(chatId, cb.Message.MessageId,
+                    "Напишите ваш вопрос одним сообщением.\nУкажите свой контакт для связи (tg id).",
+                    cancellationToken: ct);
                 break;
 
-            // ===== RUMBLE =====
             case "service_rumble":
+                SelectedService[chatId] = "Рейтинговая лестница / Rumble";
                 await bot.EditMessageText(
                     chatId,
                     cb.Message.MessageId,
                     "🏆 Рейтинговая лестница (Rumble)\n\n" +
                     "Рейтинговая лестница(он же Rumble) представляет собой временный ивент(событие) рейтинговых лиг(ранкеда) ,в котором игрокам нужно соревноваться в течении нескольких дней и удержаться в топ 9 таблицы лидеров ." +
                     "Для получения особого интерактивного полета ,цвет которого меняется в зависимости от вашего ранга,вам нужно удержаться в таблице две(2) лестницы(рамбла) в течении всего разделения(сплита) рейтинговой лиги." +
-                    "Сложность ладдера определяется индвидуально и чем лучше статистика вашего аккаунта ,тем больше очков вам понадобится",
+                    "Так как сложно ладдера определяется индвидуально и чем лучше статистика вашего аккаунта ,тем больше очков вам понадобится",
                     replyMarkup: Next("rumble_rank"),
                     cancellationToken: ct
                 );
@@ -215,9 +199,9 @@ class Program
                     chatId,
                     new InputFileStream(File.OpenRead("rumble_points.jpg"), "rumble_points.jpg"),
                     caption:
-                    "Выберите количество очков для топ 9 вашего индивидуального списка\n" +
-                    "(главное меню -> рейтинговая лестница(где режим,сверху) -> вкладка \"состязайтесь\",\n" +
-                    "обратите внимание на вкладку чемпионы лестница(топ 9 имеет минимальное количество очков для ладдера))",
+                        "Выберите количество очков для топ 9 вашего индивидуального списка\n" +
+                        "(главное меню -> рейтинговая лестница(где режим,сверху) -> вкладка \"состязайтесь\",\n" +
+                        "обратите внимание на вкладку чемпионы лестница(топ 9 имеет минимальное количество очков для ладдера))",
                     replyMarkup: RankSelect(),
                     cancellationToken: ct
                 );
@@ -232,9 +216,19 @@ class Program
                 SelectedPoints[chatId] = p;
                 OrderNumbers[chatId] = ++GlobalOrderCounter;
 
+                var priceText = CalculatePrice(chatId);
+
+                await SendToGoogleSheets(
+                    chatId,
+                    OrderNumbers[chatId],
+                    SelectedService[chatId],
+                    $"{SelectedRank[chatId]} / {SelectedPoints[chatId]}",
+                    priceText
+                );
+
                 await bot.SendMessage(
                     chatId,
-                    $"🧾 Заказ #{OrderNumbers[chatId]}\n" + CalculatePrice(chatId),
+                    $"🧾 Заказ #{OrderNumbers[chatId]}\n{priceText}",
                     replyMarkup: PayMenu("rumble_pay"),
                     cancellationToken: ct
                 );
@@ -257,25 +251,33 @@ class Program
         }
     }
 
-    static async Task SendMainMenuAlways(ITelegramBotClient bot, long chatId, CancellationToken ct)
-    {
-        await bot.SendMessage(
-            chatId,
-            "Главное меню",
-            replyMarkup: MainMenu(),
-            cancellationToken: ct
-        );
-    }
-
     static string CalculatePrice(long chatId)
     {
         var r = SelectedRank[chatId];
-        var p = SelectedPoints[chatId];
-
         if (r == "rank_master")
             return "🔴 MASTER+\n💰 От 10 000 ₽\n👥 2 игрока\n⚠️ Только pred-лобби";
 
         return "💰 Стоимость рассчитывается индивидуально";
+    }
+
+    // ===== GOOGLE SHEETS =====
+    static async Task SendToGoogleSheets(long chatId, int orderId, string service, string details, string price)
+    {
+        using var client = new HttpClient();
+
+        var payload = new
+        {
+            chat_id = chatId,
+            service = service,
+            details = $"Заказ #{orderId} | {details}",
+            price = price
+        };
+
+        var json = JsonSerializer.Serialize(payload);
+        await client.PostAsync(
+            GOOGLE_SHEETS_URL,
+            new StringContent(json, Encoding.UTF8, "application/json")
+        );
     }
 
     static Task HandleErrorAsync(ITelegramBotClient bot, Exception ex, CancellationToken ct)
