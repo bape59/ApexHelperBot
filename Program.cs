@@ -49,6 +49,9 @@ class Program
     static InlineKeyboardMarkup Next(string cb) =>
         new(new[] { new[] { InlineKeyboardButton.WithCallbackData("➡️ Дальше", cb) } });
 
+    static InlineKeyboardMarkup CoachingNext() =>
+        new(new[] { new[] { InlineKeyboardButton.WithCallbackData("понял, далее", "coach_price") } });
+
     static InlineKeyboardMarkup RankHelpMenu() =>
         new(new[]
         {
@@ -155,6 +158,27 @@ class Program
                 await bot.EditMessageText(chatId, cb.Message.MessageId, "Главное меню", replyMarkup: MainMenu(), cancellationToken: ct);
                 break;
 
+            case "service_coaching":
+                await bot.EditMessageText(
+                    chatId,
+                    cb.Message.MessageId,
+                    "Тренировочный процесс представялет собой просмотр(разбор) ваших записей игр (демок) и игра вместе с тренером корректирующим вас и ваши ошибки",
+                    replyMarkup: CoachingNext(),
+                    cancellationToken: ct
+                );
+                break;
+
+            case "coach_price":
+                OrderNumbers[chatId] = ++GlobalOrderCounter;
+                await bot.EditMessageText(
+                    chatId,
+                    cb.Message.MessageId,
+                    "Стоимость 1-го часа тренировки состовялет 1300 Р или 15$",
+                    replyMarkup: PayMenu("coach_pay"),
+                    cancellationToken: ct
+                );
+                break;
+
             case "rank_help":
                 await bot.EditMessageText(
                     chatId,
@@ -167,12 +191,7 @@ class Program
 
             case "ask_manager":
                 WaitingForQuestion.Add(chatId);
-                await bot.EditMessageText(
-                    chatId,
-                    cb.Message.MessageId,
-                    "Напишите ваш вопрос одним сообщением.",
-                    cancellationToken: ct
-                );
+                await bot.EditMessageText(chatId, cb.Message.MessageId, "Напишите ваш вопрос одним сообщением.", cancellationToken: ct);
                 break;
 
             case "service_rumble":
@@ -180,7 +199,9 @@ class Program
                     chatId,
                     cb.Message.MessageId,
                     "🏆 Рейтинговая лестница (Rumble)\n\n" +
-                    "Рейтинговая лестница(он же Rumble) представляет собой временный ивент(событие) рейтинговых лиг(ранкеда)...",
+                    "Рейтинговая лестница(он же Rumble) представляет собой временный ивент(событие) рейтинговых лиг(ранкеда) ,в котором игрокам нужно соревноваться в течении нескольких дней и удержаться в топ 9 таблицы лидеров ." +
+                    "Для получения особого интерактивного полета ,цвет которого меняется в зависимости от вашего ранга,вам нужно удержаться в таблице две(2) лестницы(рамбла) в течении всего разделения(сплита) рейтинговой лиги." +
+                    "Так как сложно ладдера определяется индвидуально и чем лучше статистика вашего аккаунта ,тем больше очков вам понадобится",
                     replyMarkup: Next("rumble_rank"),
                     cancellationToken: ct
                 );
@@ -188,19 +209,15 @@ class Program
 
             case "rumble_rank":
                 await bot.SendPhoto(
-     chatId,
-     new InputFileStream(
-         File.OpenRead("rumble_points.jpg"),
-         "rumble_points.jpg"
-     ),
-     caption:
-     "Выберите количество очков для топ 9 вашего индивидуального списка\n" +
-     "(главное меню -> рейтинговая лестница(где режим,сверху) -> вкладка \"состязайтесь\",\n" +
-     "обратите внимание на вкладку чемпионы лестница(топ 9 имеет минимальное количество очков для ладдера))",
-     replyMarkup: RankSelect(),
-     cancellationToken: ct
- );
-
+                    chatId,
+                    new InputFileStream(File.OpenRead("rumble_points.jpg"), "rumble_points.jpg"),
+                    caption:
+                    "Выберите количество очков для топ 9 вашего индивидуального списка\n" +
+                    "(главное меню -> рейтинговая лестница(где режим,сверху) -> вкладка \"состязайтесь\",\n" +
+                    "обратите внимание на вкладку чемпионы лестница(топ 9 имеет минимальное количество очков для ладдера))",
+                    replyMarkup: RankSelect(),
+                    cancellationToken: ct
+                );
                 break;
 
             case var r when r.StartsWith("rank_"):
@@ -211,13 +228,7 @@ class Program
             case var p when p.StartsWith("pts_"):
                 SelectedPoints[chatId] = p;
                 OrderNumbers[chatId] = ++GlobalOrderCounter;
-
-                await bot.SendMessage(
-                    chatId,
-                    $"🧾 Заказ #{OrderNumbers[chatId]}\n" + CalculatePrice(chatId),
-                    replyMarkup: PayMenu("rumble_pay"),
-                    cancellationToken: ct
-                );
+                await bot.SendMessage(chatId, $"🧾 Заказ #{OrderNumbers[chatId]}\n" + CalculatePrice(chatId), replyMarkup: PayMenu("rumble_pay"), cancellationToken: ct);
                 break;
 
             case "rumble_pay":

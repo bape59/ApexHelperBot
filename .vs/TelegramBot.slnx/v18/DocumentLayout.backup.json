@@ -23,15 +23,14 @@
             {
               "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "TelegramBot",
+              "Title": "TelegramBot.csproj",
               "DocumentMoniker": "D:\\gitprojects\\TelegramBot\\TelegramBot\\TelegramBot.csproj",
               "RelativeDocumentMoniker": "TelegramBot.csproj",
               "ToolTip": "D:\\gitprojects\\TelegramBot\\TelegramBot\\TelegramBot.csproj",
               "RelativeToolTip": "TelegramBot.csproj",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2026-01-06T00:11:31.279Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-06T00:11:31.279Z"
             },
             {
               "$type": "Document",
@@ -41,7 +40,7 @@
               "RelativeDocumentMoniker": "Program.cs",
               "ToolTip": "D:\\gitprojects\\TelegramBot\\TelegramBot\\Program.cs",
               "RelativeToolTip": "Program.cs",
-              "ViewState": "AgIAAJgAAAAAAAAAAAAvwMoAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsBAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-01-03T14:38:27.702Z",
               "EditorCaption": ""
