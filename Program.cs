@@ -41,8 +41,8 @@ class Program
 
     // ================= КНОПКИ =================
 
-    static InlineKeyboardButton BackButton(string cb) =>
-        InlineKeyboardButton.WithCallbackData("⬅️ Назад", cb);
+    static InlineKeyboardButton Back(string to) =>
+        InlineKeyboardButton.WithCallbackData("⬅️ Назад", to);
 
     static InlineKeyboardMarkup MainMenu() =>
         new(new[]
@@ -52,11 +52,11 @@ class Program
             new[] { InlineKeyboardButton.WithCallbackData("🆘 Помощь с рангом", "rank_help") }
         });
 
-    static InlineKeyboardMarkup Next(string cb, string back) =>
+    static InlineKeyboardMarkup Next(string next, string back) =>
         new(new[]
         {
-            new[] { InlineKeyboardButton.WithCallbackData("➡️ Дальше", cb) },
-            new[] { BackButton(back) }
+            new[] { InlineKeyboardButton.WithCallbackData("➡️ Дальше", next) },
+            new[] { Back(back) }
         });
 
     static InlineKeyboardMarkup RumbleMethod() =>
@@ -64,7 +64,15 @@ class Program
         {
             new[] { InlineKeyboardButton.WithCallbackData("✅ Вместе с тренером", "rumble_with_coach") },
             new[] { InlineKeyboardButton.WithCallbackData("✍️ Другим способом", "rumble_other") },
-            new[] { BackButton("main_menu") }
+            new[] { Back("main_menu") }
+        });
+
+    static InlineKeyboardMarkup RankHelpMenu() =>
+        new(new[]
+        {
+            new[] { InlineKeyboardButton.WithCallbackData("✍️ Написать вопрос здесь", "ask_question") },
+            new[] { InlineKeyboardButton.WithUrl("Связаться напрямую с @bapetaype", "https://t.me/bapetaype") },
+            new[] { Back("main_menu") }
         });
 
     static InlineKeyboardMarkup RankSelect() =>
@@ -74,7 +82,7 @@ class Program
             new[] { InlineKeyboardButton.WithCallbackData("🔵 PLAT", "rank_plat") },
             new[] { InlineKeyboardButton.WithCallbackData("🟣 DIAMOND", "rank_diamond") },
             new[] { InlineKeyboardButton.WithCallbackData("🔴 MASTER+", "rank_master") },
-            new[] { BackButton("rumble_method") }
+            new[] { Back("rumble_method") }
         });
 
     static InlineKeyboardMarkup PointsSelect() =>
@@ -83,21 +91,21 @@ class Program
             new[] { InlineKeyboardButton.WithCallbackData("≤ 1500", "pts_low") },
             new[] { InlineKeyboardButton.WithCallbackData("1500–2000", "pts_mid") },
             new[] { InlineKeyboardButton.WithCallbackData("2000+", "pts_high") },
-            new[] { BackButton("rumble_with_coach") }
+            new[] { Back("rumble_with_coach") }
         });
 
-    static InlineKeyboardMarkup PayMenu(string cb, string back) =>
+    static InlineKeyboardMarkup PayMenu(string back) =>
         new(new[]
         {
-            new[] { InlineKeyboardButton.WithCallbackData("💳 Получить реквизиты", cb) },
-            new[] { BackButton(back) }
+            new[] { InlineKeyboardButton.WithCallbackData("💳 Получить реквизиты", "pay") },
+            new[] { Back(back) }
         });
 
     static InlineKeyboardMarkup AfterPay() =>
         new(new[]
         {
             new[] { InlineKeyboardButton.WithCallbackData("📸 Я оплатил", "paid_done") },
-            new[] { BackButton("main_menu") }
+            new[] { Back("main_menu") }
         });
 
     // ================= ОБРАБОТКА =================
@@ -119,6 +127,24 @@ class Program
 
         switch (cb.Data)
         {
+            case "main_menu":
+                await bot.SendMessage(chatId, "Главное меню",
+                    replyMarkup: MainMenu(), cancellationToken: ct);
+                break;
+
+            case "rank_help":
+                await bot.SendMessage(chatId,
+                    "Напишите ваш вопрос одним сообщением.\nУкажите свой контакт (tg id).\nПример: напишите мне @bapetaype",
+                    replyMarkup: RankHelpMenu(), cancellationToken: ct);
+                break;
+
+            case "ask_question":
+                WaitingForQuestion.Add(chatId);
+                await bot.SendMessage(chatId,
+                    "Напишите ваш вопрос одним сообщением.\nУкажите свой контакт (tg id).\nПример: напишите мне @bapetaype",
+                    replyMarkup: RankHelpMenu(), cancellationToken: ct);
+                break;
+
             case "service_rumble":
                 SelectedService[chatId] = "Рейтинговая лестница / Rumble";
                 await bot.SendPhoto(
@@ -155,7 +181,7 @@ class Program
                 OrderNumbers[chatId] = ++GlobalOrderCounter;
                 await bot.SendMessage(chatId,
                     $"🧾 Заказ #{OrderNumbers[chatId]}\n{CalculatePrice(chatId)}",
-                    replyMarkup: PayMenu("pay", "rumble_with_coach"), cancellationToken: ct);
+                    replyMarkup: PayMenu("rumble_with_coach"), cancellationToken: ct);
                 break;
 
             case "pay":
@@ -164,9 +190,11 @@ class Program
                     replyMarkup: AfterPay(), cancellationToken: ct);
                 break;
 
-            case "main_menu":
-                await bot.SendMessage(chatId, "Главное меню",
-                    replyMarkup: MainMenu(), cancellationToken: ct);
+            case "paid_done":
+                WaitingForScreenshot.Add(chatId);
+                await bot.SendMessage(chatId,
+                    "📸 Пришлите скриншот оплаты.",
+                    replyMarkup: AfterPay(), cancellationToken: ct);
                 break;
         }
     }
