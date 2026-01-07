@@ -26,21 +26,6 @@ class Program
 
     static int GlobalOrderCounter = 1000;
 
-    static async Task Main()
-    {
-        var token = Environment.GetEnvironmentVariable("BOT_TOKEN")
-            ?? throw new Exception("BOT_TOKEN not set");
-
-        var bot = new TelegramBotClient(token);
-        using var cts = new CancellationTokenSource();
-
-        bot.StartReceiving(HandleUpdateAsync, HandleErrorAsync,
-            new ReceiverOptions { AllowedUpdates = Array.Empty<UpdateType>() }, cts.Token);
-
-        Console.WriteLine($"Бот запущен: @{(await bot.GetMe()).Username}");
-        await Task.Delay(-1);
-    }
-
     // ================= КНОПКИ =================
 
     static InlineKeyboardButton BackButton() =>
@@ -115,6 +100,19 @@ class Program
         History[chatId].Push((text, kb));
     }
 
+    static async Task Show(
+        ITelegramBotClient bot,
+        long chatId,
+        int msgId,
+        string text,
+        InlineKeyboardMarkup kb,
+        CancellationToken ct)
+    {
+        var withBack = WithBack(kb);
+        Push(chatId, text, withBack);
+        await bot.EditMessageText(chatId, msgId, text, replyMarkup: withBack, cancellationToken: ct);
+    }
+
     // ================= ОБРАБОТКА =================
 
     static async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
@@ -149,50 +147,41 @@ class Program
         var msg = cb.Message.MessageId;
         await bot.AnswerCallbackQuery(cb.Id, cancellationToken: ct);
 
-        void Edit(string text, InlineKeyboardMarkup kb)
-        {
-            var withBack = WithBack(kb);
-            Push(chatId2, text, withBack);
-            bot.EditMessageText(chatId2, msg, text, replyMarkup: withBack, cancellationToken: ct);
-        }
-
         switch (cb.Data)
         {
             case "service_rumble":
                 SelectedService[chatId2] = "Рейтинговая лестница / Rumble";
-                Edit(
+                await Show(bot, chatId2, msg,
                     "🏆 Рейтинговая лестница (Rumble)\n\n" +
                     "Рейтинговая лестница(он же Rumble) представляет собой временный ивент(событие) рейтинговых лиг(ранкеда) ,в котором игрокам нужно соревноваться в течении нескольких дней и удержаться в топ 9 таблицы лидеров ." +
                     "Для получения особого интерактивного полета ,цвет которого меняется в зависимости от вашего ранга,вам нужно удержаться в таблице две(2) лестницы(рамбла) в течении всего разделения(сплита) рейтинговой лиги." +
                     "Так как сложно ладдера определяется индвидуально и чем лучше статистика вашего аккаунта ,тем больше очков вам понадобится",
-                    Next("rumble_method")
-                );
+                    Next("rumble_method"), ct);
                 break;
 
             case "rumble_method":
-                Edit("Как вы хотите выполнить?", RumbleMethod());
+                await Show(bot, chatId2, msg, "Как вы хотите выполнить?", RumbleMethod(), ct);
                 break;
 
             case "rumble_with_coach":
-                Edit("Выберите ваш ранг:", RankSelect());
+                await Show(bot, chatId2, msg, "Выберите ваш ранг:", RankSelect(), ct);
                 break;
 
             case var r when r.StartsWith("rank_"):
                 SelectedRank[chatId2] = r;
-                Edit("Выберите количество очков:", PointsSelect());
+                await Show(bot, chatId2, msg, "Выберите количество очков:", PointsSelect(), ct);
                 break;
 
             case var p when p.StartsWith("pts_"):
                 SelectedPoints[chatId2] = p;
                 OrderNumbers[chatId2] = ++GlobalOrderCounter;
-                Edit(
+                await Show(bot, chatId2, msg,
                     $"🧾 Заказ #{OrderNumbers[chatId2]}\n{CalculatePrice(chatId2)}",
-                    PayMenu("pay")
-                );
+                    PayMenu("pay"), ct);
                 break;
 
             case "main_menu":
-                Edit("Главное меню", MainMenu());
+                await Show(bot, chatId2, msg, "Главное меню", MainMenu(), ct);
                 break;
         }
     }
