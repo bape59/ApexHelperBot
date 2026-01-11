@@ -22,6 +22,8 @@ class Program
     static HashSet<long> WaitingForScreenshot = new();
     static HashSet<long> WaitingForQuestion = new();
     static Dictionary<long, string> SelectedCoach = new();
+    static Dictionary<long, string> UserStep = new();
+
 
 
     static int GlobalOrderCounter = 1000;
@@ -46,9 +48,11 @@ class Program
     static InlineKeyboardMarkup CoachingOptions() =>
     new(new[]
     {
+
         new[] { InlineKeyboardButton.WithCallbackData("Тренировка c bape : 1500 Р(17$) в час", "coach_bape") },
         new[] { InlineKeyboardButton.WithCallbackData("Premium Тренировка с ojrein(скоро будет доступна)", "coach_ojrein") },
-        new[] { InlineKeyboardButton.WithCallbackData("Тренировка c 7ozzzus 2000 Р(23$) в час", "coach_7ozzzus") }
+        new[] { InlineKeyboardButton.WithCallbackData("Тренировка c 7ozzzus 2000 Р(23$) в час", "coach_7ozzzus") },
+        new[] { InlineKeyboardButton.WithCallbackData("⬅️ Назад", "back") }
     });
 
     static InlineKeyboardMarkup MainMenu() =>
@@ -60,20 +64,23 @@ class Program
         });
 
     static InlineKeyboardMarkup Next(string cb) =>
-        new(new[] { new[] { InlineKeyboardButton.WithCallbackData("➡️ Дальше", cb) } });
+        new(new[] { new[] { InlineKeyboardButton.WithCallbackData("➡️ Дальше", cb) },
+        new[] { InlineKeyboardButton.WithCallbackData("⬅️ Назад", "back") }});
 
     static InlineKeyboardMarkup RumbleMethod() =>
         new(new[]
         {
             new[] { InlineKeyboardButton.WithCallbackData("✅ Вместе с тренером", "rumble_with_coach") },
-            new[] { InlineKeyboardButton.WithCallbackData("✍️ Другим способом", "rumble_other") }
+            new[] { InlineKeyboardButton.WithCallbackData("✍️ Другим способом", "rumble_other") },
+            new[] { InlineKeyboardButton.WithCallbackData("⬅️ Назад", "back") }
         });
 
     static InlineKeyboardMarkup RankHelpMenu() =>
         new(new[]
         {
             new[] { InlineKeyboardButton.WithCallbackData("✍️ Написать вопрос здесь", "ask_question") },
-            new[] { InlineKeyboardButton.WithUrl("Связаться напрямую с @bapetaype", "https://t.me/bapetaype") }
+            new[] { InlineKeyboardButton.WithUrl("Связаться напрямую с @bapetaype", "https://t.me/bapetaype") },
+            new[] { InlineKeyboardButton.WithCallbackData("⬅️ Назад", "back") }
         });
 
     static InlineKeyboardMarkup RankSelect() =>
@@ -82,7 +89,8 @@ class Program
             new[] { InlineKeyboardButton.WithCallbackData("🟡 GOLD и ниже", "rank_gold") },
             new[] { InlineKeyboardButton.WithCallbackData("🔵 PLAT", "rank_plat") },
             new[] { InlineKeyboardButton.WithCallbackData("🟣 DIAMOND", "rank_diamond") },
-            new[] { InlineKeyboardButton.WithCallbackData("🔴 MASTER+", "rank_master") }
+            new[] { InlineKeyboardButton.WithCallbackData("🔴 MASTER+", "rank_master") },
+            new[] { InlineKeyboardButton.WithCallbackData("⬅️ Назад", "back") }
         });
 
     static InlineKeyboardMarkup PointsSelect() =>
@@ -90,18 +98,21 @@ class Program
         {
             new[] { InlineKeyboardButton.WithCallbackData("≤ 1500", "pts_low") },
             new[] { InlineKeyboardButton.WithCallbackData("1500–2000", "pts_mid") },
-            new[] { InlineKeyboardButton.WithCallbackData("2000+", "pts_high") }
+            new[] { InlineKeyboardButton.WithCallbackData("2000+", "pts_high") },
+            new[] { InlineKeyboardButton.WithCallbackData("⬅️ Назад", "back") }
         });
 
     static InlineKeyboardMarkup PayMenu(string cb) =>
         new(new[]
         {
             new[] { InlineKeyboardButton.WithCallbackData("💳 Получить реквизиты", cb) },
-            new[] { InlineKeyboardButton.WithCallbackData("⬅️ Главное меню", "main_menu") }
+            new[] { InlineKeyboardButton.WithCallbackData("⬅️ Главное меню", "main_menu") },
+            new[] { InlineKeyboardButton.WithCallbackData("⬅️ Назад", "back") }
         });
 
     static InlineKeyboardMarkup AfterPay() =>
-        new(new[] { new[] { InlineKeyboardButton.WithCallbackData("📸 Я оплатил", "paid_done") } });
+        new(new[] { new[] { InlineKeyboardButton.WithCallbackData("📸 Я оплатил", "paid_done") },
+        new[] { InlineKeyboardButton.WithCallbackData("⬅️ Назад", "back") }});
 
     // ================= ОБРАБОТКА =================
 
@@ -156,6 +167,7 @@ class Program
 
         if (update.Message?.Text == "/start")
         {
+            UserStep[update.Message.Chat.Id] = "main";
             await bot.SendMessage(update.Message.Chat.Id, "Главное меню",
                 replyMarkup: MainMenu(), cancellationToken: ct);
             return;
@@ -169,7 +181,12 @@ class Program
 
         switch (cb.Data)
         {
+            case "back":
+                await HandleBack(bot, chatId, cb, ct);
+                break;
+
             case "rank_help":
+                UserStep[chatId] = "rank_help";
                 // Удаляем старое сообщение (главное меню)
                 await bot.DeleteMessage(chatId, cb.Message.MessageId, cancellationToken: ct);
 
@@ -187,6 +204,7 @@ class Program
                 break;
 
             case "ask_question":
+                UserStep[chatId] = "ask_question";
                 WaitingForQuestion.Add(chatId);
 
                 await bot.SendMessage(
@@ -198,6 +216,7 @@ class Program
 
             // ===== RUMBLE =====
             case "service_rumble":
+                UserStep[chatId] = "rumble_desc";
                 SelectedService[chatId] = "Рейтинговая лестница / Rumble";
                 await bot.SendPhoto(
                     chatId,
@@ -213,6 +232,7 @@ class Program
                 break;
 
             case "rumble_method":
+                UserStep[chatId] = "rumble_method";
                 await bot.SendMessage(chatId, "Как вы хотите выполнить?",
                     replyMarkup: RumbleMethod(), cancellationToken: ct);
                 break;
@@ -225,17 +245,20 @@ class Program
                 break;
 
             case "rumble_with_coach":
+                UserStep[chatId] = "rank_select";
                 await bot.SendMessage(chatId, "Выберите ваш ранг:",
                     replyMarkup: RankSelect(), cancellationToken: ct);
                 break;
 
             case var r when r.StartsWith("rank_"):
+                UserStep[chatId] = "points_select";
                 SelectedRank[chatId] = r;
                 await bot.SendMessage(chatId, "Выберите количество очков:",
                     replyMarkup: PointsSelect(), cancellationToken: ct);
                 break;
 
             case var p when p.StartsWith("pts_"):
+                UserStep[chatId] = "pay";
                 SelectedPoints[chatId] = p;
                 OrderNumbers[chatId] = ++GlobalOrderCounter;
                 await bot.SendMessage(chatId,
@@ -245,21 +268,25 @@ class Program
 
             // ===== COACHING =====
             case "coach_bape":
+                UserStep[chatId] = "pay";
                 SelectedCoach[chatId] = "bape";
                 await CreateCoachingOrder(bot, chatId, "Тренировка c bape : 1500 Р(17$) в час", ct);
                 break;
 
             case "coach_ojrein":
+                UserStep[chatId] = "pay";
                 SelectedCoach[chatId] = "ojrein";
                 await CreateCoachingOrder(bot, chatId, "Premium Тренировка с ojrein(скоро будет доступна)", ct);
                 break;
 
             case "coach_7ozzzus":
+                UserStep[chatId] = "pay";
                 SelectedCoach[chatId] = "7ozzzus";
                 await CreateCoachingOrder(bot, chatId, "Тренировка c 7ozzzus 3000 Р в час", ct);
                 break;
 
             case "service_coaching":
+                UserStep[chatId] = "coach_desc";
                 SelectedService[chatId] = "Тренировки / Coaching";
                 await bot.EditMessageText(chatId, cb.Message.MessageId,
                     "Тренировочный процесс представялет собой просмотр(разбор) ваших записей игр (демок) и игра вместе с тренером корректирующим вас и ваши ошибки",
@@ -267,6 +294,7 @@ class Program
                 break;
 
             case "coach_price":
+                UserStep[chatId] = "coach_select";
                 await bot.EditMessageText(
                     chatId,
                     cb.Message.MessageId,
@@ -283,12 +311,14 @@ class Program
                 break;
 
             case "paid_done":
+                UserStep[chatId] = "waiting_screenshot";
                 WaitingForScreenshot.Add(chatId);
                 await bot.EditMessageText(chatId, cb.Message.MessageId,
                     "📸 Пришлите скриншот оплаты.", cancellationToken: ct);
                 break;
 
             case "main_menu":
+                UserStep[chatId] = "main";
                 await bot.EditMessageText(chatId, cb.Message.MessageId,
                     "Главное меню", replyMarkup: MainMenu(), cancellationToken: ct);
                 break;
@@ -365,4 +395,59 @@ class Program
         Console.WriteLine(ex);
         return Task.CompletedTask;
     }
+    static async Task HandleBack(ITelegramBotClient bot, long chatId, CallbackQuery cb, CancellationToken ct)
+    {
+        var step = UserStep.GetValueOrDefault(chatId, "main");
+
+        switch (step)
+        {
+            case "rumble_method":
+                await bot.SendPhoto(
+                    chatId,
+                    new InputFileStream(File.OpenRead("rumble_points.jpg"), "rumble_points.jpg"),
+                    caption:
+                    "🏆 Рейтинговая лестница (Rumble)\n\n" +
+                    "Рейтинговая лестница(он же Rumble) представляет собой временный ивент(событие) рейтинговых лиг(ранкеда) ,в котором игрокам нужно соревноваться в течении нескольких дней и удержаться в топ 9 таблицы лидеров ." +
+                    "Для получения особого интерактивного полета ,цвет которого меняется в зависимости от вашего ранга,вам нужно удержаться в таблице две(2) лестницы(рамбла) в течении всего разделения(сплита) рейтинговой лиги." +
+                    "Так как сложно ладдера определяется индвидуально и чем лучше статистика вашего аккаунта ,тем больше очков вам понадобится",
+                    replyMarkup: Next("rumble_method"),
+                    cancellationToken: ct
+                );
+                UserStep[chatId] = "rumble_desc";
+                break;
+
+            case "rank_select":
+                await bot.SendMessage(chatId,
+                    "Как вы хотите выполнить?",
+                    replyMarkup: RumbleMethod(),
+                    cancellationToken: ct);
+                UserStep[chatId] = "rumble_method";
+                break;
+
+            case "points_select":
+                await bot.SendMessage(chatId,
+                    "Выберите ваш ранг:",
+                    replyMarkup: RankSelect(),
+                    cancellationToken: ct);
+                UserStep[chatId] = "rank_select";
+                break;
+
+            case "pay":
+                await bot.SendMessage(chatId,
+                    "Выберите количество очков:",
+                    replyMarkup: PointsSelect(),
+                    cancellationToken: ct);
+                UserStep[chatId] = "points_select";
+                break;
+
+            default:
+                await bot.SendMessage(chatId,
+                    "Главное меню",
+                    replyMarkup: MainMenu(),
+                    cancellationToken: ct);
+                UserStep[chatId] = "main";
+                break;
+        }
+    }
+
 }
