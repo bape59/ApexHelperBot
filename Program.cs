@@ -21,6 +21,8 @@ class Program
     static Dictionary<long, string> SelectedCoachingType = new();
     static HashSet<long> WaitingForScreenshot = new();
     static HashSet<long> WaitingForQuestion = new();
+    static Dictionary<long, string> SelectedCoach = new();
+
 
     static int GlobalOrderCounter = 1000;
 
@@ -41,12 +43,21 @@ class Program
 
     // ================= КНОПКИ =================
 
+    static InlineKeyboardMarkup CoachingOptions() =>
+    new(new[]
+    {
+        new[] { InlineKeyboardButton.WithCallbackData("Стоимость 1-го часа тренировки состовялет 1300 Р или 15$", "coach_bape") },
+        new[] { InlineKeyboardButton.WithCallbackData("Premium Тренировка с ojrein :4000 Р в час", "coach_ojrein") },
+        new[] { InlineKeyboardButton.WithCallbackData("Тренировка c 7ozzzus 3000 Р в час", "coach_7ozzzus") }
+    });
+
+
     static InlineKeyboardMarkup CoachingTypes() =>
      new(new[]
      {
-        new[] { InlineKeyboardButton.WithCallbackData("Classic Тренировка с bape : 1500 Р в час", "coach_std") },
-        new[] { InlineKeyboardButton.WithCallbackData("Premium Тренировка с ojrein : 4000 Р в час", "coach_premium") },
-        new[] { InlineKeyboardButton.WithCallbackData("Middle Тренировка с ojrein : 3000 Р в час", "coach_7oz") }
+        new[] { InlineKeyboardButton.WithCallbackData("Тренировка с bape : 1500 Р в час", "coach_std") },
+        new[] { InlineKeyboardButton.WithCallbackData("Premium Тренировка с ojrein(скоро будет доступна) : 4000 Р в час", "coach_premium") },
+        new[] { InlineKeyboardButton.WithCallbackData("Тренировка с 7ozzzus : 3000 Р в час", "coach_7oz") }
      });
 
     static InlineKeyboardMarkup MainMenu() =>
@@ -130,13 +141,21 @@ class Program
             await bot.ForwardMessage(MANAGER_CHAT_ID, update.Message.Chat.Id,
                 update.Message.MessageId, cancellationToken: ct);
 
+            string details =
+    SelectedService[update.Message.Chat.Id] == "Тренировки / Coaching"
+    ? SelectedCoach.GetValueOrDefault(update.Message.Chat.Id)
+    : $"{SelectedRank.GetValueOrDefault(update.Message.Chat.Id)} / {SelectedPoints.GetValueOrDefault(update.Message.Chat.Id)}";
+
             await SendToGoogleSheets(
                 update.Message.Chat.Id,
                 OrderNumbers[update.Message.Chat.Id],
                 SelectedService[update.Message.Chat.Id],
-                $"{SelectedRank.GetValueOrDefault(update.Message.Chat.Id)} / {SelectedPoints.GetValueOrDefault(update.Message.Chat.Id)}",
-                CalculatePrice(update.Message.Chat.Id)
+                details,
+                SelectedService[update.Message.Chat.Id] == "Тренировки / Coaching"
+                    ? "Тренировка"
+                    : CalculatePrice(update.Message.Chat.Id)
             );
+
 
             await bot.SendMessage(update.Message.Chat.Id,
                 "✅ Скриншот получен!\nМенеджер проверит оплату и свяжется с вами.",
@@ -160,9 +179,14 @@ class Program
         switch (cb.Data)
         {
             case "rank_help":
-                await bot.EditMessageText(chatId, cb.Message.MessageId,
+                await bot.SendPhoto(
+                    chatId,
+                    new InputFileStream(File.OpenRead("rank_help.png"), "rank_help.png"),
+                    caption:
                     "Для ознакомления с перечнем услуг или уточнения информации.\nУкажите свой контакт (tg id).\nПример: напишите мне @bapetaype",
-                    replyMarkup: RankHelpMenu(), cancellationToken: ct);
+                    replyMarkup: RankHelpMenu(),
+                    cancellationToken: ct
+                );
                 break;
 
             case "ask_question":
@@ -220,6 +244,21 @@ class Program
                 break;
 
             // ===== COACHING =====
+            case "coach_bape":
+                SelectedCoach[chatId] = "bape";
+                await CreateCoachingOrder(bot, chatId, "Стоимость 1-го часа тренировки состовялет 1300 Р или 15$", ct);
+                break;
+
+            case "coach_ojrein":
+                SelectedCoach[chatId] = "ojrein";
+                await CreateCoachingOrder(bot, chatId, "Premium Тренировка с ojrein :4000 Р в час", ct);
+                break;
+
+            case "coach_7ozzzus":
+                SelectedCoach[chatId] = "7ozzzus";
+                await CreateCoachingOrder(bot, chatId, "Тренировка c 7ozzzus 3000 Р в час", ct);
+                break;
+
             case "service_coaching":
                 SelectedService[chatId] = "Тренировки / Coaching";
                 await bot.EditMessageText(chatId, cb.Message.MessageId,
@@ -228,9 +267,13 @@ class Program
                 break;
 
             case "coach_price":
-                await bot.EditMessageText(chatId, cb.Message.MessageId,
+                await bot.EditMessageText(
+                    chatId,
+                    cb.Message.MessageId,
                     "Выберите тип тренировки:",
-                    replyMarkup: CoachingTypes(), cancellationToken: ct);
+                    replyMarkup: CoachingOptions(),
+                    cancellationToken: ct
+                );
                 break;
 
             case "pay":
@@ -258,7 +301,7 @@ class Program
                 goto case "coach_finalize";
 
             case "coach_7oz":
-                SelectedCoachingType[chatId] = "Middle Тренировка с ojrein : 3000 Р в час";
+                SelectedCoachingType[chatId] = "Middle Тренировка с 7ozzzus : 3000 Р в час";
                 goto case "coach_finalize";
 
             case "coach_finalize":
@@ -267,6 +310,7 @@ class Program
                     $"🧾 Заказ #{OrderNumbers[chatId]}\n{SelectedCoachingType[chatId]}",
                     replyMarkup: PayMenu("pay"), cancellationToken: ct);
                 break;
+
 
         }
     }
@@ -303,6 +347,17 @@ class Program
 
         await client.PostAsync(GOOGLE_SHEETS_URL,
             new StringContent(json, Encoding.UTF8, "application/json"));
+    }
+    static async Task CreateCoachingOrder(ITelegramBotClient bot, long chatId, string priceText, CancellationToken ct)
+    {
+        OrderNumbers[chatId] = ++GlobalOrderCounter;
+
+        await bot.SendMessage(
+            chatId,
+            $"🧾 Заказ #{OrderNumbers[chatId]}\n{priceText}",
+            replyMarkup: PayMenu("pay"),
+            cancellationToken: ct
+        );
     }
 
     static Task HandleErrorAsync(ITelegramBotClient bot, Exception ex, CancellationToken ct)
