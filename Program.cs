@@ -170,23 +170,22 @@ class Program
         switch (cb.Data)
         {
             case "rank_help":
-                await bot.EditMessageMedia(
+                // Удаляем старое сообщение (главное меню)
+                await bot.DeleteMessage(chatId, cb.Message.MessageId, cancellationToken: ct);
+
+                // Отправляем новое сообщение с картинкой и кнопками
+                await bot.SendPhoto(
                     chatId,
-                    cb.Message.MessageId,
-                    new InputMediaPhoto(new InputFileStream(
-                        File.OpenRead("rank_help.png"),
-                        "rank_help.png"
-                    ))
-                    {
-                        Caption =
-                        "Для ознакомления с перечнем услуг или уточнения информации.\n" +
-                        "Укажите свой контакт (tg id).\n" +
-                        "Пример: напишите мне @bapetaype"
-                    },
+                    new InputFileStream(File.OpenRead("rank_help.png"), "rank_help.png"),
+                    caption:
+                    "Для ознакомления с перечнем услуг или уточнения информации.\n" +
+                    "Укажите свой контакт (tg id).\n" +
+                    "Пример: напишите мне @bapetaype",
                     replyMarkup: RankHelpMenu(),
                     cancellationToken: ct
                 );
                 break;
+
 
             case "ask_question":
                 WaitingForQuestion.Add(chatId);
