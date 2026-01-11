@@ -21,3 +21,5 @@ D:\gitprojects\TelegramBot\TelegramBot\obj\Debug\net10.0\refint\TelegramBot.dll
 D:\gitprojects\TelegramBot\TelegramBot\obj\Debug\net10.0\TelegramBot.pdb
 D:\gitprojects\TelegramBot\TelegramBot\obj\Debug\net10.0\TelegramBot.genruntimeconfig.cache
 D:\gitprojects\TelegramBot\TelegramBot\obj\Debug\net10.0\ref\TelegramBot.dll
+D:\gitprojects\TelegramBot\TelegramBot\bin\Debug\net10.0\rumble_points.jpg
+D:\gitprojects\TelegramBot\TelegramBot\obj\Debug\net10.0\TelegramBot.sourcelink.json

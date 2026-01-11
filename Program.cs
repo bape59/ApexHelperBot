@@ -46,19 +46,10 @@ class Program
     static InlineKeyboardMarkup CoachingOptions() =>
     new(new[]
     {
-        new[] { InlineKeyboardButton.WithCallbackData("Стоимость 1-го часа тренировки состовялет 1300 Р или 15$", "coach_bape") },
-        new[] { InlineKeyboardButton.WithCallbackData("Premium Тренировка с ojrein :4000 Р в час", "coach_ojrein") },
-        new[] { InlineKeyboardButton.WithCallbackData("Тренировка c 7ozzzus 3000 Р в час", "coach_7ozzzus") }
+        new[] { InlineKeyboardButton.WithCallbackData("Тренировка c bape : 1500 Р(17$) в час", "coach_bape") },
+        new[] { InlineKeyboardButton.WithCallbackData("Premium Тренировка с ojrein(скоро будет доступна) :4000 Р в час", "coach_ojrein") },
+        new[] { InlineKeyboardButton.WithCallbackData("Тренировка c 7ozzzus 2000 Р(23$) в час", "coach_7ozzzus") }
     });
-
-
-    static InlineKeyboardMarkup CoachingTypes() =>
-     new(new[]
-     {
-        new[] { InlineKeyboardButton.WithCallbackData("Тренировка с bape : 1500 Р в час", "coach_std") },
-        new[] { InlineKeyboardButton.WithCallbackData("Premium Тренировка с ojrein(скоро будет доступна) : 4000 Р в час", "coach_premium") },
-        new[] { InlineKeyboardButton.WithCallbackData("Тренировка с 7ozzzus : 3000 Р в час", "coach_7oz") }
-     });
 
     static InlineKeyboardMarkup MainMenu() =>
         new(new[]
@@ -179,11 +170,19 @@ class Program
         switch (cb.Data)
         {
             case "rank_help":
-                await bot.SendPhoto(
+                await bot.EditMessageMedia(
                     chatId,
-                    new InputFileStream(File.OpenRead("rank_help.png"), "rank_help.png"),
-                    caption:
-                    "Для ознакомления с перечнем услуг или уточнения информации.\nУкажите свой контакт (tg id).\nПример: напишите мне @bapetaype",
+                    cb.Message.MessageId,
+                    new InputMediaPhoto(new InputFileStream(
+                        File.OpenRead("rank_help.png"),
+                        "rank_help.png"
+                    ))
+                    {
+                        Caption =
+                        "Для ознакомления с перечнем услуг или уточнения информации.\n" +
+                        "Укажите свой контакт (tg id).\n" +
+                        "Пример: напишите мне @bapetaype"
+                    },
                     replyMarkup: RankHelpMenu(),
                     cancellationToken: ct
                 );
@@ -246,12 +245,12 @@ class Program
             // ===== COACHING =====
             case "coach_bape":
                 SelectedCoach[chatId] = "bape";
-                await CreateCoachingOrder(bot, chatId, "Стоимость 1-го часа тренировки состовялет 1300 Р или 15$", ct);
+                await CreateCoachingOrder(bot, chatId, "Тренировка c bape : 1500 Р(17$) в час", ct);
                 break;
 
             case "coach_ojrein":
                 SelectedCoach[chatId] = "ojrein";
-                await CreateCoachingOrder(bot, chatId, "Premium Тренировка с ojrein :4000 Р в час", ct);
+                await CreateCoachingOrder(bot, chatId, "Premium Тренировка с ojrein(скоро будет доступна) :4000 Р в час", ct);
                 break;
 
             case "coach_7ozzzus":
@@ -301,7 +300,7 @@ class Program
                 goto case "coach_finalize";
 
             case "coach_7oz":
-                SelectedCoachingType[chatId] = "Middle Тренировка с 7ozzzus : 3000 Р в час";
+                SelectedCoachingType[chatId] = "Тренировка c 7ozzzus 2000 Р(23$) в час";
                 goto case "coach_finalize";
 
             case "coach_finalize":
