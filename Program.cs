@@ -47,7 +47,7 @@ class Program
     new(new[]
     {
         new[] { InlineKeyboardButton.WithCallbackData("Тренировка c bape : 1500 Р(17$) в час", "coach_bape") },
-        new[] { InlineKeyboardButton.WithCallbackData("Premium Тренировка с ojrein(скоро будет доступна) :4000 Р в час", "coach_ojrein") },
+        new[] { InlineKeyboardButton.WithCallbackData("Premium Тренировка с ojrein(скоро будет доступна)", "coach_ojrein") },
         new[] { InlineKeyboardButton.WithCallbackData("Тренировка c 7ozzzus 2000 Р(23$) в час", "coach_7ozzzus") }
     });
 
@@ -186,12 +186,14 @@ class Program
                 );
                 break;
 
-
             case "ask_question":
                 WaitingForQuestion.Add(chatId);
-                await bot.EditMessageText(chatId, cb.Message.MessageId,
+
+                await bot.SendMessage(
+                    chatId,
                     "Напишите ваш вопрос одним сообщением.\nУкажите свой контакт (tg id).\nПример: напишите мне @bapetaype",
-                    cancellationToken: ct);
+                    cancellationToken: ct
+                );
                 break;
 
             // ===== RUMBLE =====
@@ -249,7 +251,7 @@ class Program
 
             case "coach_ojrein":
                 SelectedCoach[chatId] = "ojrein";
-                await CreateCoachingOrder(bot, chatId, "Premium Тренировка с ojrein(скоро будет доступна) :4000 Р в час", ct);
+                await CreateCoachingOrder(bot, chatId, "Premium Тренировка с ojrein(скоро будет доступна)", ct);
                 break;
 
             case "coach_7ozzzus":
